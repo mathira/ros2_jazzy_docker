@@ -1,0 +1,49 @@
+{
+  "name": "ROS2 Jazzy Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "runArgs": [
+    "--init",
+    "--privileged",
+    "--shm-size=1g"
+  ],
+  "mounts": [
+    "type=bind,source=${localWorkspaceFolder}/ros2_ws/src,target=/ros2_ws/src",
+    "type=volume,source=ros2_jazzy_ws_build,target=/ros2_ws/build",
+    "type=volume,source=ros2_jazzy_ws_install,target=/ros2_ws/install",
+    "type=volume,source=ros2_jazzy_ws_log,target=/ros2_ws/log"
+  ],
+  "remoteUser": "ros",
+  "containerUser": "ros",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-iot.vscode-ros",
+        "ms-python.python",
+        "ms-vscode.cpptools",
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "cmake.configureOnOpen": false
+      }
+    }
+  },
+  "forwardPorts": [6080, 5901],
+  "portsAttributes": {
+    "6080": {
+      "label": "noVNC (browser)",
+      "onAutoForward": "notify"
+    },
+    "5901": {
+      "label": "VNC",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "bash /home/ros/.devcontainer/scripts/post-create.sh",
+  "postStartCommand": "bash /home/ros/.devcontainer/scripts/vnc-start.sh",
+  "overrideCommand": false
+}
