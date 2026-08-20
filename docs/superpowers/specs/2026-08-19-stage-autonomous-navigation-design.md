@@ -4,7 +4,7 @@
 
 Incorporar al workspace un paquete ROS 2 Jazzy llamado `stage_autonomous_nav` que permita a un robot simulado en el mundo `cave` de `stage_ros2` navegar de forma autónoma desde su pose inicial hasta una meta seleccionada en RViz mediante **2D Goal Pose**.
 
-La primera versión usa la odometría perfecta que publica Stage. No incluye AMCL ni SLAM: un transform estático `map -> odom` sitúa la odometría de la simulación en el mapa conocido. El láser alimenta el coste local de Nav2 y permite esquivar el bloque presente en el mundo aunque este no se represente inicialmente en el mapa estático.
+La primera versión usa la pose de verdad-terreno que publica Stage. No incluye AMCL ni SLAM: el nodo `ground_truth_localizer` calcula continuamente `map -> odom` a partir de `/ground_truth` y de la transformación `odom -> base_link` de Stage. Así elimina la deriva de la odometría simulada del mundo `cave` sin modificarlo. El láser alimenta el coste local de Nav2 y permite esquivar el bloque presente en el mundo aunque este no se represente inicialmente en el mapa estático.
 
 ## Alcance
 
@@ -15,6 +15,7 @@ Se incluirán:
 - Un mapa de ocupación que corresponda al bitmap de `cave`.
 - Parámetros de Nav2 ajustados al robot móvil de Stage.
 - Un RViz preconfigurado para enviar metas y observar el estado de navegación.
+- Un localizador de verdad-terreno limitado a la simulación Stage.
 - Una definición reproducible de dependencias de workspace para `stage_ros2` y el Stage modificado recomendado por ese proyecto.
 - Documentación de preparación, ejecución y verificación.
 
@@ -35,10 +36,10 @@ Nav2: planner, controller, behavior tree, recoveries
         v
 stage_ros2 / Stage ----> robot Pioneer simulado
        |                         |
-       +-- /odom, /tf, /scan ----+
+       +-- /odom, /ground_truth, /tf, /base_scan ----+
 
 map_server -> mapa estático cave -> Nav2
-static_transform_publisher: map -> odom
+ground_truth_localizer: /ground_truth + odom -> base_link -> map -> odom
 ```
 
 El launch fija el modo de un solo robot de Stage:
@@ -48,7 +49,7 @@ ros2 launch stage_ros2 stage.launch.py \
   world:=cave enforce_prefixes:=false one_tf_tree:=true
 ```
 
-Nav2 recibe una meta en `/goal_pose` desde RViz y publica la ruta y comandos de velocidad. Stage ejecuta esos comandos y entrega odometría, TF y láser a Nav2. Los nombres de frames y tópicos se expondrán como argumentos o parámetros de launch para acomodar el contrato exacto publicado por Stage sin editar el código.
+Nav2 recibe una meta en `/goal_pose` desde RViz y publica la ruta y comandos de velocidad. Stage ejecuta esos comandos y entrega `/odom`, `/ground_truth`, TF y `/base_scan` a Nav2 y al localizador. `ground_truth_localizer` toma la pose global de `/ground_truth` como `map -> base_link`, consulta `odom -> base_link` y publica `map -> odom = (map -> base_link) * inverse(odom -> base_link)`. Los nombres de frames y tópicos se expondrán como argumentos o parámetros de launch para acomodar el contrato exacto publicado por Stage sin editar el código.
 
 ## Estructura prevista
 
@@ -63,7 +64,7 @@ ros2_ws/
         ├── maps/cave.pgm
         ├── rviz/cave_navigation.rviz
         ├── resource/stage_autonomous_nav
-        ├── stage_autonomous_nav/
+        ├── stage_autonomous_nav/ground_truth_localizer.py
         ├── test/
         ├── package.xml
         ├── setup.cfg
@@ -77,6 +78,7 @@ El mapa utilizará la misma geometría, origen y resolución que el bitmap de 16
 
 - `use_sim_time: true` en todos los nodos.
 - `map` como frame global, `odom` como frame de odometría y frame base parametrizable.
+- `ground_truth_localizer` transforma la pose de `/ground_truth` (frame `world` de Stage) al frame `map` y publica `map -> odom`; en la configuración inicial ambos frames tienen el mismo origen.
 - `map_server` carga `maps/cave.yaml`.
 - Costmap global: mapa estático con inflación configurada según el radio del Pioneer.
 - Costmap local: observación de láser, obstáculos y capa de inflación.
@@ -88,7 +90,7 @@ El mapa utilizará la misma geometría, origen y resolución que el bitmap de 16
 `cave_navigation.launch.py` realizará, en este orden lógico:
 
 1. Arrancar Stage con el mundo `cave` y TF único.
-2. Publicar `map -> odom` estático.
+2. Arrancar `ground_truth_localizer` para publicar `map -> odom` continuo.
 3. Arrancar el stack de navegación de Nav2 y el servidor de mapas.
 4. Iniciar RViz con mapa, TF, láser, coste local/global, ruta y la herramienta de metas.
 
@@ -96,7 +98,7 @@ La interfaz de usuario de la primera versión es RViz exclusivamente. El operado
 
 ## Gestión de fallos
 
-- Las comprobaciones de ciclo de vida de Nav2 impedirán activar la navegación si falta mapa, TF, odometría o láser.
+- Las comprobaciones de ciclo de vida de Nav2 impedirán activar la navegación si falta mapa, TF, odometría, verdad-terreno o láser.
 - Los timeouts del controlador provocarán recuperación o aborto, según la configuración de Nav2.
 - Cancelar una meta desde RViz o finalizar el launch publica velocidad cero antes de detener Stage.
 - Los frames y tópicos se validarán al arrancar y se documentarán los remapeos necesarios si la versión de Stage utilizada difiere.
@@ -104,9 +106,10 @@ La interfaz de usuario de la primera versión es RViz exclusivamente. El operado
 ## Verificación
 
 1. Las pruebas de instalación y lint comprueban que el paquete y sus recursos se instalan correctamente.
-2. Una prueba de launch valida que la descripción se genera con el mundo `cave` y los argumentos esperados.
-3. La comprobación manual de integración arranca el launch, espera a que Nav2 esté activo, establece una meta libre en RViz y confirma que se emiten comandos, el robot llega a la proximidad configurada y Nav2 devuelve resultado exitoso.
-4. Una segunda comprobación sitúa una meta cuya trayectoria pasa junto al bloque para confirmar que el coste local usa el láser y evita la colisión.
+2. Una prueba unitaria valida que `ground_truth_localizer` compone `map -> odom` correctamente a partir de poses conocidas.
+3. Una prueba de launch valida que la descripción se genera con el mundo `cave` y los argumentos esperados.
+4. La comprobación manual de integración arranca el launch, espera a que Nav2 esté activo, establece una meta libre en RViz y confirma que se emiten comandos, el robot llega a la proximidad configurada y Nav2 devuelve resultado exitoso.
+5. Una segunda comprobación sitúa una meta cuya trayectoria pasa junto al bloque para confirmar que el coste local usa el láser y evita la colisión.
 
 ## Criterio de aceptación
 
