@@ -126,6 +126,20 @@ After building, source the workspace:
 source /ros2_ws/install/setup.bash
 ```
 
+## Stage + Nav2 autonomous navigation
+
+After the Dockerfile changes, rebuild the dev-container image. Inside the
+container, run these preparation commands before building the workspace:
+
+```bash
+cd /ros2_ws
+vcs import src < stage_nav.repos
+rosdep update
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --symlink-install
+source install/setup.bash
+```
+
 ## Manual package example
 
 ```bash

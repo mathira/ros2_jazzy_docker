@@ -38,6 +38,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-jazzy-robot-state-publisher ros-jazzy-joint-state-publisher \
     ros-jazzy-joint-state-publisher-gui ros-jazzy-teleop-twist-keyboard \
     ros-jazzy-turtlesim \
+    ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+    ros-jazzy-ackermann-msgs \
+    python3-pil \
     && rm -rf /var/lib/apt/lists/*
 
 # Create user 'ros' with uid/gid 1000 (base image ships an 'ubuntu' user on 1000, replace it)
