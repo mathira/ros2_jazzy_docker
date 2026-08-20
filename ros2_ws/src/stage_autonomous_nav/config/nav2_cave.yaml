@@ -371,8 +371,9 @@ route_server:
 velocity_smoother:
   ros__parameters:
     use_sim_time: true
-    # navigation_launch.py remaps this node's cmd_vel input to cmd_vel_nav.
-    # Its cmd_vel_smoothed output feeds collision_monitor, which publishes cmd_vel.
+    # Jazzy navigation_launch.py remaps controller, behavior, and this node's
+    # cmd_vel topic to cmd_vel_nav. The smoother publishes cmd_vel_smoothed;
+    # collision_monitor consumes it and publishes the final Stage cmd_vel.
     smoothing_frequency: 20.0
     stamp_smoothed_velocity_with_smoothing_time: False
     scale_velocities: False

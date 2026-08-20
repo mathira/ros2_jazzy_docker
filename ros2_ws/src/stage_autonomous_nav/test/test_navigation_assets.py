@@ -23,3 +23,13 @@ def test_nav2_costmaps_use_map_frame_and_stage_laser_scan():
     assert nav_data['global_costmap']['global_costmap']['ros__parameters']['global_frame'] == 'map'
     assert nav_data['local_costmap']['local_costmap']['ros__parameters']['observation_sources'] == 'scan'
     assert nav_data['local_costmap']['local_costmap']['ros__parameters']['scan']['topic'] == '/base_scan'
+
+
+def test_nav2_velocity_pipeline_keeps_collision_monitor_between_smoother_and_stage():
+    """Catch removal of the final collision-monitor safety stage before Stage cmd_vel."""
+    with (PACKAGE_ROOT / 'config' / 'nav2_cave.yaml').open(encoding='utf-8') as stream:
+        nav_data = yaml.safe_load(stream)
+
+    collision_monitor = nav_data['collision_monitor']['ros__parameters']
+    assert collision_monitor['cmd_vel_in_topic'] == 'cmd_vel_smoothed'
+    assert collision_monitor['cmd_vel_out_topic'] == 'cmd_vel'
