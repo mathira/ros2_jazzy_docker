@@ -1,1 +1,28 @@
-{}
+dqn_trainer:
+  ros__parameters:
+    observation_size: 86
+    action_count: 6
+    max_steps: 500
+    max_episodes: 100
+    target_coverage: 0.75
+    stall_limit: 50
+    map_cell_count: 160000
+    frontier_threshold: 0.50
+    new_cell_reward: 0.10
+    frontier_bonus: 0.50
+    step_penalty: 0.01
+    no_progress_penalty: 0.10
+    intervention_penalty: 1.00
+    recovery_penalty: 0.50
+    replay_capacity: 100000
+    batch_size: 32
+    gamma: 0.99
+    learning_rate: 0.001
+    target_sync_steps: 1000
+    epsilon_start: 1.00
+    epsilon_min: 0.05
+    epsilon_decay: 0.995
+    evaluation_interval: 10
+    evaluation_episodes: 3
+    reset_timeout_seconds: 10.0
+    model_directory: models
