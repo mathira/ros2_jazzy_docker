@@ -11,6 +11,7 @@ from turtleboot3_autonomous_nav.dqn import (
 )
 from turtleboot3_autonomous_nav.dqn_explorer import greedy_action_for_observation
 from turtleboot3_autonomous_nav.dqn_trainer import (
+    EpisodeResetGate,
     TrainerConfig,
     configure_reset_all,
     episode_end_reason,
@@ -175,3 +176,20 @@ def test_replay_optimization_increases_the_value_of_a_rewarded_action():
     optimize_replay(policy, replay, batch_size=1, gamma=0.99, learning_rate=0.01)
 
     assert policy.q_values(observation)[0] > before
+
+
+def test_episode_reset_gate_requires_both_acks_and_post_ack_sensor_data():
+    """Queued pre-reset data must never arm a new episode."""
+    gate = EpisodeResetGate()
+
+    gate.begin_reset()
+    assert gate.record_sensor("odom", 1) is False
+    gate.world_reset_succeeded()
+    assert gate.record_sensor("scan", 1) is False
+
+    gate.mapper_reset_succeeded(odom_sequence=4, scan_sequence=7)
+    assert gate.record_sensor("odom", 4) is False
+    assert gate.record_sensor("scan", 7) is False
+    assert gate.record_sensor("odom", 5) is True
+    assert gate.record_sensor("scan", 8) is True
+    assert gate.ready is True

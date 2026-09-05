@@ -35,9 +35,7 @@ def test_invalid_ranges_do_not_change_the_map():
 def test_invalid_pose_or_scan_angles_are_ignored():
     grid = OccupancyGridModel(20, 20, 1.0, (-10.0, -10.0))
 
-    changed = grid.update_scan(
-        (np.nan, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0
-    )
+    changed = grid.update_scan((np.nan, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0)
 
     assert changed == 0
     assert grid.coverage_fraction() == 0.0
@@ -62,7 +60,7 @@ def test_long_ray_is_clipped_before_bresenham_traversal(monkeypatch):
         traversals.append((start_x, start_y, end_x, end_y))
         return original_bresenham(start_x, start_y, end_x, end_y)
 
-    monkeypatch.setattr(grid, '_bresenham_cells', record_bresenham)
+    monkeypatch.setattr(grid, "_bresenham_cells", record_bresenham)
 
     grid.update_scan((0.0, 0.0, 0.0), np.array([1_000.0]), 0.0, 1.0, 1_000.0)
 
@@ -73,13 +71,9 @@ def test_long_ray_is_clipped_before_bresenham_traversal(monkeypatch):
 def test_coverage_counts_new_known_cells_once_and_never_decreases():
     grid = OccupancyGridModel(20, 20, 1.0, (-10.0, -10.0))
 
-    first_change = grid.update_scan(
-        (0.0, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0
-    )
+    first_change = grid.update_scan((0.0, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0)
     first_coverage = grid.coverage_fraction()
-    repeated_change = grid.update_scan(
-        (0.0, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0
-    )
+    repeated_change = grid.update_scan((0.0, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0)
     second_coverage = grid.coverage_fraction()
     third_change = grid.update_scan(
         (0.0, 0.0, 0.0), np.array([3.0]), np.pi / 2.0, 1.0, 8.0
@@ -93,12 +87,24 @@ def test_coverage_counts_new_known_cells_once_and_never_decreases():
 
 
 def test_occupied_endpoint_requires_configured_evidence_threshold():
-    grid = OccupancyGridModel(
-        20, 20, 1.0, (-10.0, -10.0), occupied_threshold=2
-    )
+    grid = OccupancyGridModel(20, 20, 1.0, (-10.0, -10.0), occupied_threshold=2)
 
     grid.update_scan((0.0, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0)
     assert grid.value_at(3.0, 0.0) == -1
 
     grid.update_scan((0.0, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0)
     assert grid.value_at(3.0, 0.0) == 100
+
+
+def test_reset_clears_all_episode_coverage_and_cell_evidence():
+    """A new Gazebo episode must not inherit mapper coverage from the prior one."""
+    grid = OccupancyGridModel(20, 20, 1.0, (-10.0, -10.0), occupied_threshold=2)
+    grid.update_scan((0.0, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0)
+    grid.update_scan((0.0, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0)
+
+    grid.reset()
+
+    assert grid.coverage_fraction() == 0.0
+    assert grid.value_at(1.0, 0.0) == -1
+    grid.update_scan((0.0, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0)
+    assert grid.value_at(3.0, 0.0) == -1

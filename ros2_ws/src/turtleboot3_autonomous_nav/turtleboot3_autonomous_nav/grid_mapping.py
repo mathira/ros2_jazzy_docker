@@ -31,11 +31,11 @@ class OccupancyGridModel:
         occupied_threshold: int = 1,
     ) -> None:
         if width <= 0 or height <= 0:
-            raise ValueError('width and height must be positive')
+            raise ValueError("width and height must be positive")
         if resolution <= 0.0:
-            raise ValueError('resolution must be positive')
+            raise ValueError("resolution must be positive")
         if occupied_threshold <= 0:
-            raise ValueError('occupied_threshold must be positive')
+            raise ValueError("occupied_threshold must be positive")
 
         self.width = int(width)
         self.height = int(height)
@@ -45,9 +45,14 @@ class OccupancyGridModel:
 
         self._grid = np.full((self.height, self.width), self.UNKNOWN, dtype=np.int8)
         self._free_evidence = np.zeros((self.height, self.width), dtype=np.uint16)
-        self._occupied_evidence = np.zeros(
-            (self.height, self.width), dtype=np.uint16
-        )
+        self._occupied_evidence = np.zeros((self.height, self.width), dtype=np.uint16)
+        self._known_cells = 0
+
+    def reset(self) -> None:
+        """Clear every observation so the next episode starts at zero coverage."""
+        self._grid.fill(self.UNKNOWN)
+        self._free_evidence.fill(0)
+        self._occupied_evidence.fill(0)
         self._known_cells = 0
 
     def update_scan(
@@ -125,12 +130,14 @@ class OccupancyGridModel:
         """Return the fraction of cells that have changed from unknown."""
         return self._known_cells / float(self.width * self.height)
 
-    def to_message(self, stamp: object, frame_id: str = 'odom') -> 'OccupancyGrid':
+    def to_message(self, stamp: object, frame_id: str = "odom") -> "OccupancyGrid":
         """Create a ROS ``OccupancyGrid`` message without coupling the core to ROS."""
         try:
             from nav_msgs.msg import OccupancyGrid
         except ImportError as error:  # pragma: no cover - exercised in ROS only
-            raise RuntimeError('nav_msgs is required to create an OccupancyGrid') from error
+            raise RuntimeError(
+                "nav_msgs is required to create an OccupancyGrid"
+            ) from error
 
         message = OccupancyGrid()
         message.header.stamp = stamp

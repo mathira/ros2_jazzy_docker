@@ -50,3 +50,21 @@ and this task was explicitly constrained not to start them; therefore a
 headless episode checkpoint was not executed in this task.  The trainer creates
 the model files on the first improved zero-epsilon evaluation when launched by
 Task 6.
+
+## Review follow-up: episode isolation
+
+- Added `/coverage_mapper/reset` as a `std_srvs/srv/Empty` service.  Its handler
+  clears occupancy values, free/occupied evidence, known-cell count, and the
+  cached odometry pose, then publishes a zero coverage metric.
+- The trainer now implements the ordered reset transaction:
+  `ControlWorld` success ACK → mapper reset success ACK → post-ACK odometry and
+  scan callbacks.  It snapshots callback sequence numbers after the mapper ACK,
+  so callbacks already observed before that point cannot satisfy the fresh-data
+  gate.  Local coverage and its reward baseline are reset to `0.0` immediately
+  before the episode is allowed to start.
+- Added regression tests for the acknowledgement/sequence gate and for
+  clearing grid coverage and accumulated cell evidence.
+
+Verification after the follow-up: the Jazzy container built
+`turtleboot3_autonomous_nav`; all package tests passed (`30 passed`), and
+`black --check` plus `git diff --check` succeeded.

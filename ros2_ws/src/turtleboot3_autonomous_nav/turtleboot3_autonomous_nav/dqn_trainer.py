@@ -75,6 +75,65 @@ class TrainerConfig:
             raise ValueError("gamma and learning_rate must be positive and bounded")
 
 
+class EpisodeResetGate:
+    """Accept only data received after both reset operations acknowledge.
+
+    Subscription callbacks retain monotonically increasing local sequences.
+    The mapper-reset acknowledgement snapshots those sequences; a new episode
+    needs later odometry and scan callbacks after the mapper has cleared its
+    coverage state.
+    """
+
+    def __init__(self) -> None:
+        self._phase = "idle"
+        self._minimum_sequence = {"odom": 0, "scan": 0}
+        self._fresh = {"odom": False, "scan": False}
+
+    def begin_reset(self) -> None:
+        """Start a reset transaction without accepting any sensor data."""
+        self._phase = "waiting_for_world"
+
+    def world_reset_succeeded(self) -> None:
+        """Advance only after the asynchronous Gazebo acknowledgement succeeds."""
+        if self._phase != "waiting_for_world":
+            raise RuntimeError("world reset acknowledgement is out of order")
+        self._phase = "waiting_for_mapper"
+
+    def mapper_reset_succeeded(self, odom_sequence: int, scan_sequence: int) -> None:
+        """Arm the gate using callback sequences observed after both ACKs."""
+        if self._phase != "waiting_for_mapper":
+            raise RuntimeError("mapper reset acknowledgement is out of order")
+        self._minimum_sequence = {
+            "odom": int(odom_sequence),
+            "scan": int(scan_sequence),
+        }
+        self._fresh = {"odom": False, "scan": False}
+        self._phase = "waiting_for_fresh_data"
+
+    def record_sensor(self, name: str, sequence: int) -> bool:
+        """Record a post-ACK required sensor callback and return whether accepted."""
+        if name not in self._minimum_sequence:
+            raise ValueError(f"unknown required sensor: {name}")
+        if (
+            self._phase != "waiting_for_fresh_data"
+            or int(sequence) <= self._minimum_sequence[name]
+        ):
+            return False
+        self._fresh[name] = True
+        return True
+
+    @property
+    def ready(self) -> bool:
+        """Whether an episode can begin with isolated map and sensor state."""
+        return self._phase == "waiting_for_fresh_data" and all(self._fresh.values())
+
+    def start_episode(self) -> None:
+        """Consume a ready gate so later callbacks cannot reinitialize the episode."""
+        if not self.ready:
+            raise RuntimeError("cannot start an episode before reset data is fresh")
+        self._phase = "running"
+
+
 def episode_reward(
     new_cells: int,
     reached_frontier: bool,
@@ -279,6 +338,7 @@ def main(args: list[str] | None = None) -> None:
     from ros_gz_interfaces.srv import ControlWorld
     from sensor_msgs.msg import LaserScan
     from std_msgs.msg import Bool, Float32, Float32MultiArray, Int32
+    from std_srvs.srv import Empty
 
     class DQNTrainer(Node):
         """Collect asynchronous ROS observations into bounded DQN episodes."""
@@ -315,6 +375,7 @@ def main(args: list[str] | None = None) -> None:
             self.create_subscription(Odometry, "/odom", self._on_odometry, 10)
             self.create_subscription(LaserScan, "/scan", self._on_scan, 10)
             self._world_control = self.create_client(ControlWorld, "/world/dqn/control")
+            self._mapper_reset = self.create_client(Empty, "/coverage_mapper/reset")
 
             self._coverage = 0.0
             self._coverage_baseline = 0.0
@@ -327,9 +388,9 @@ def main(args: list[str] | None = None) -> None:
             self._recovery_seen = False
             self._intervention_active = False
             self._recovery_active = False
-            self._environment_reset_pending = False
-            self._fresh_odometry = False
-            self._fresh_scan = False
+            self._reset_gate = EpisodeResetGate()
+            self._odom_sequence = 0
+            self._scan_sequence = 0
             self._running_episode = False
             self._is_evaluation = False
             self._training_episodes = 0
@@ -349,8 +410,11 @@ def main(args: list[str] | None = None) -> None:
 
         def _on_coverage(self, message: Float32) -> None:
             coverage = float(message.data)
-            if math.isfinite(coverage):
-                self._coverage = min(max(coverage, 0.0), 1.0)
+            if not math.isfinite(coverage):
+                return
+            coverage = min(max(coverage, 0.0), 1.0)
+            if self._running_episode:
+                self._coverage = coverage
 
         def _on_intervention(self, message: Bool) -> None:
             active = bool(message.data)
@@ -363,21 +427,22 @@ def main(args: list[str] | None = None) -> None:
             self._recovery_active = active
 
         def _on_odometry(self, _: Odometry) -> None:
-            if self._environment_reset_pending:
-                self._fresh_odometry = True
-                self._begin_episode_when_sensors_are_fresh()
+            self._odom_sequence += 1
+            if self._reset_gate.record_sensor("odom", self._odom_sequence):
+                self._begin_episode_when_reset_data_is_fresh()
 
         def _on_scan(self, _: LaserScan) -> None:
-            if self._environment_reset_pending:
-                self._fresh_scan = True
-                self._begin_episode_when_sensors_are_fresh()
+            self._scan_sequence += 1
+            if self._reset_gate.record_sensor("scan", self._scan_sequence):
+                self._begin_episode_when_reset_data_is_fresh()
 
-        def _begin_episode_when_sensors_are_fresh(self) -> None:
-            if not (self._fresh_odometry and self._fresh_scan):
+        def _begin_episode_when_reset_data_is_fresh(self) -> None:
+            if not self._reset_gate.ready:
                 return
-            self._environment_reset_pending = False
+            self._reset_gate.start_episode()
             self._running_episode = True
-            self._coverage_baseline = self._coverage
+            self._coverage = 0.0
+            self._coverage_baseline = 0.0
             self._previous_state = None
             self._previous_action = None
             self._steps = 0
@@ -387,7 +452,8 @@ def main(args: list[str] | None = None) -> None:
             self._recovery_seen = False
             self.get_logger().info(
                 f"Started {'evaluation' if self._is_evaluation else 'training'} "
-                f"episode {self._total_episodes + 1} after fresh odometry and scan."
+                f"episode {self._total_episodes + 1} after reset ACKs and fresh "
+                "odometry and scan."
             )
 
         def _on_observation(self, message: Float32MultiArray) -> None:
@@ -511,6 +577,7 @@ def main(args: list[str] | None = None) -> None:
             self._request_world_reset()
 
         def _request_world_reset(self) -> None:
+            self._reset_gate.begin_reset()
             if not self._world_control.wait_for_service(
                 timeout_sec=self._config.reset_timeout_seconds
             ):
@@ -522,9 +589,6 @@ def main(args: list[str] | None = None) -> None:
                 return
             request = ControlWorld.Request()
             configure_reset_all(request)
-            self._environment_reset_pending = True
-            self._fresh_odometry = False
-            self._fresh_scan = False
             future = self._world_control.call_async(request)
             future.add_done_callback(self._on_world_reset)
 
@@ -540,6 +604,35 @@ def main(args: list[str] | None = None) -> None:
                     f"Gazebo world reset was rejected: {response.message}"
                 )
                 rclpy.shutdown()
+                return
+            self._reset_gate.world_reset_succeeded()
+            self._request_mapper_reset()
+
+        def _request_mapper_reset(self) -> None:
+            if not self._mapper_reset.wait_for_service(
+                timeout_sec=self._config.reset_timeout_seconds
+            ):
+                self.get_logger().error(
+                    "Coverage mapper reset service /coverage_mapper/reset is unavailable; "
+                    "training cannot continue with mixed episode coverage."
+                )
+                rclpy.shutdown()
+                return
+            future = self._mapper_reset.call_async(Empty.Request())
+            future.add_done_callback(self._on_mapper_reset)
+
+        def _on_mapper_reset(self, future: Any) -> None:
+            try:
+                future.result()
+            except Exception as error:
+                self.get_logger().error(f"Coverage mapper reset failed: {error}")
+                rclpy.shutdown()
+                return
+            self._reset_gate.mapper_reset_succeeded(
+                self._odom_sequence, self._scan_sequence
+            )
+            self._coverage = 0.0
+            self._coverage_baseline = 0.0
 
         def _epsilon(self) -> float:
             decayed = self._config.epsilon_start * (
