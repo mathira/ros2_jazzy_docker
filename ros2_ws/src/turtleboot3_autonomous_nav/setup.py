@@ -8,7 +8,7 @@ package_name = 'turtleboot3_autonomous_nav'
 
 
 def resource_files(directory):
-    files = glob(os.path.join(directory, '*'))
+    files = [path for path in glob(os.path.join(directory, '*')) if os.path.isfile(path)]
     if not files:
         return []
     return [(os.path.join('share', package_name, directory), files)]
@@ -20,7 +20,7 @@ setup(
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name, ['package.xml', 'README.md']),
         *resource_files('launch'),
         *resource_files('config'),
         *resource_files('rviz'),
@@ -40,6 +40,7 @@ setup(
             'safe_motion_controller = turtleboot3_autonomous_nav.safe_motion_controller:main',
             'dqn_explorer = turtleboot3_autonomous_nav.dqn_explorer:main',
             'dqn_trainer = turtleboot3_autonomous_nav.dqn_trainer:main',
+            'exploration_visualizer = turtleboot3_autonomous_nav.exploration_visualizer:main',
         ],
     },
 )
