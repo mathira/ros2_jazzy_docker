@@ -13,7 +13,7 @@ ARG USER_GID=${USER_UID}
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     # Build & dev tools
     build-essential cmake git wget curl vim nano htop \
-    python3-pip python3-venv python3-argcomplete python3-pytest \
+    python3-pip python3-venv python3-argcomplete python3-pytest python3-torch \
     python3-vcstool python3-rospkg python3-colcon-common-extensions \
     python3-rosdep \
     # GUI / simulation libs
