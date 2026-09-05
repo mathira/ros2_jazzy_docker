@@ -73,9 +73,9 @@ class OccupancyGridModel:
         if not measurements_are_finite or range_max <= 0.0:
             return 0
 
-        start = self._world_to_cell(pose_x, pose_y)
         newly_known = 0
         flattened_ranges = np.asarray(ranges, dtype=float).reshape(-1)
+        robot_is_in_map = self._point_in_map(pose_x, pose_y)
 
         for index, measured_range in enumerate(flattened_ranges):
             if not np.isfinite(measured_range) or measured_range <= 0.0:
@@ -84,22 +84,31 @@ class OccupancyGridModel:
             is_hit = measured_range < range_max
             ray_length = min(float(measured_range), float(range_max))
             angle = pose_yaw + angle_min + index * angle_increment
-            endpoint = self._world_to_cell(
-                pose_x + ray_length * np.cos(angle),
-                pose_y + ray_length * np.sin(angle),
+            direction_x = float(np.cos(angle))
+            direction_y = float(np.sin(angle))
+            clipped_ray = self._clip_ray_to_map(
+                pose_x, pose_y, direction_x, direction_y, ray_length
             )
-            cells = list(self._bresenham_cells(*start, *endpoint))
-            if not cells:
+            if clipped_ray is None:
                 continue
 
-            free_cells = cells[1:]
-            if is_hit:
+            clipped_start, clipped_end = clipped_ray
+            start = self._bounded_world_to_cell(*clipped_start)
+            endpoint = self._bounded_world_to_cell(*clipped_end)
+            cells = list(self._bresenham_cells(*start, *endpoint))
+
+            free_cells = cells[1:] if robot_is_in_map else cells
+            endpoint_is_in_map = is_hit and self._point_in_map(
+                pose_x + ray_length * direction_x,
+                pose_y + ray_length * direction_y,
+            )
+            if endpoint_is_in_map:
                 free_cells = free_cells[:-1]
 
             for cell_x, cell_y in free_cells:
                 newly_known += self._apply_free(cell_x, cell_y)
 
-            if is_hit:
+            if endpoint_is_in_map:
                 end_x, end_y = cells[-1]
                 newly_known += self._apply_occupied(end_x, end_y)
 
@@ -139,6 +148,67 @@ class OccupancyGridModel:
         return (
             int(np.floor((x - self.origin[0]) / self.resolution)),
             int(np.floor((y - self.origin[1]) / self.resolution)),
+        )
+
+    def _bounded_world_to_cell(self, x: float, y: float) -> tuple[int, int]:
+        """Convert a clipped point to a valid cell, including the upper edge."""
+        cell_x, cell_y = self._world_to_cell(x, y)
+        return (
+            min(max(cell_x, 0), self.width - 1),
+            min(max(cell_y, 0), self.height - 1),
+        )
+
+    def _point_in_map(self, x: float, y: float) -> bool:
+        min_x, min_y = self.origin
+        return (
+            min_x <= x < min_x + self.width * self.resolution
+            and min_y <= y < min_y + self.height * self.resolution
+        )
+
+    def _clip_ray_to_map(
+        self,
+        start_x: float,
+        start_y: float,
+        direction_x: float,
+        direction_y: float,
+        length: float,
+    ) -> tuple[tuple[float, float], tuple[float, float]] | None:
+        """Clip a ray segment to the map before discrete traversal.
+
+        Distances are clipped parametrically, avoiding an intermediate endpoint
+        or Bresenham path whose size depends on an out-of-map sensor range.
+        """
+        min_x, min_y = self.origin
+        max_x = min_x + self.width * self.resolution
+        max_y = min_y + self.height * self.resolution
+        enter_distance = 0.0
+        exit_distance = length
+
+        for position, direction, lower, upper in (
+            (start_x, direction_x, min_x, max_x),
+            (start_y, direction_y, min_y, max_y),
+        ):
+            if direction == 0.0:
+                if position < lower or position >= upper:
+                    return None
+                continue
+
+            lower_distance = (lower - position) / direction
+            upper_distance = (upper - position) / direction
+            enter_distance = max(enter_distance, min(lower_distance, upper_distance))
+            exit_distance = min(exit_distance, max(lower_distance, upper_distance))
+            if enter_distance > exit_distance:
+                return None
+
+        return (
+            (
+                start_x + enter_distance * direction_x,
+                start_y + enter_distance * direction_y,
+            ),
+            (
+                start_x + exit_distance * direction_x,
+                start_y + exit_distance * direction_y,
+            ),
         )
 
     def _apply_free(self, cell_x: int, cell_y: int) -> int:

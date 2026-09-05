@@ -53,6 +53,23 @@ def test_ray_that_leaves_map_marks_only_in_bounds_cells_free():
     assert grid.coverage_fraction() == 1.0 / 16.0
 
 
+def test_long_ray_is_clipped_before_bresenham_traversal(monkeypatch):
+    grid = OccupancyGridModel(20, 20, 1.0, (-10.0, -10.0))
+    traversals = []
+    original_bresenham = grid._bresenham_cells
+
+    def record_bresenham(start_x, start_y, end_x, end_y):
+        traversals.append((start_x, start_y, end_x, end_y))
+        return original_bresenham(start_x, start_y, end_x, end_y)
+
+    monkeypatch.setattr(grid, '_bresenham_cells', record_bresenham)
+
+    grid.update_scan((0.0, 0.0, 0.0), np.array([1_000.0]), 0.0, 1.0, 1_000.0)
+
+    assert traversals == [(10, 10, 19, 10)]
+    assert grid.coverage_fraction() == 9.0 / 400.0
+
+
 def test_coverage_counts_new_known_cells_once_and_never_decreases():
     grid = OccupancyGridModel(20, 20, 1.0, (-10.0, -10.0))
 
