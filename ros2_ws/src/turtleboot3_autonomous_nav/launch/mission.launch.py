@@ -17,6 +17,8 @@ def generate_launch_description():
     sim = {'use_sim_time': ParameterValue(LaunchConfiguration('use_sim_time'), value_type=bool)}
     return LaunchDescription([
         DeclareLaunchArgument('model_path', description='Trusted trained checkpoint path'),
+        DeclareLaunchArgument('max_steps', default_value='500'),
+        DeclareLaunchArgument('target_coverage', default_value='0.75'),
         DeclareLaunchArgument('use_rviz', default_value='true'),
         DeclareLaunchArgument('use_gui', default_value='true'),
         DeclareLaunchArgument('use_sim_time', default_value='true'),
@@ -36,7 +38,9 @@ def generate_launch_description():
         Node(package=package, executable='observation_builder', name='observation_builder', parameters=[sim]),
         Node(package=package, executable='safe_motion_controller', name='safe_motion_controller', parameters=[sim]),
         Node(package=package, executable='dqn_explorer', name='dqn_explorer', parameters=[sim, {
-            'model_path': ParameterValue(LaunchConfiguration('model_path'), value_type=str)}]),
+            'model_path': ParameterValue(LaunchConfiguration('model_path'), value_type=str),
+            'max_steps': ParameterValue(LaunchConfiguration('max_steps'), value_type=int),
+            'target_coverage': ParameterValue(LaunchConfiguration('target_coverage'), value_type=float)}]),
         Node(package=package, executable='exploration_visualizer', name='exploration_visualizer',
              parameters=[sim], condition=IfCondition(LaunchConfiguration('use_rviz'))),
         Node(package='rviz2', executable='rviz2', name='rviz2', parameters=[sim],

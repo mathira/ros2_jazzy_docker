@@ -66,9 +66,9 @@ ros2 launch turtleboot3_autonomous_nav training.launch.py \
 default configuration evaluates every 10 training episodes over 3 greedy runs.
 Fewer than 10 training episodes with that configuration will not produce a
 checkpoint.
-After the episode limit is logged, stop the launcher with Ctrl-C. The trainer
-stays alive but ceases issuing actions; the controller's action watchdog stops
-the robot. Change schedules and rewards with `training_config:=/absolute/file.yaml`.
+At the episode limit the trainer requests an acknowledged controller stop and
+exits; stop the remaining simulator launcher with Ctrl-C. Change schedules and
+rewards with `training_config:=/absolute/file.yaml`.
 
 For a short integration exercise that performs one training and one evaluation
 episode (not a useful trained policy):
@@ -90,6 +90,30 @@ ros2 launch turtleboot3_autonomous_nav mission.launch.py \
 For a headless mission use `use_rviz:=false use_gui:=false`. `model_path` is
 required so a mission cannot silently substitute untrained weights. Load only
 trusted checkpoints: the current `.pt` format is Python pickle, not TorchScript.
+The explorer also rejects an absent or empty model when run directly with
+`ros2 run`. A mission stops at `max_steps:=500` actions or
+`target_coverage:=0.75`, whichever comes first. Override these launch arguments
+to set mission limits. On termination it disables the controller, which publishes
+zero velocity and rejects later actions until explicitly enabled for a new run.
+
+The controller starts disabled. The policy nodes use the acknowledged
+`/safe_motion_controller/enable` (`std_srvs/SetBool`) service to enable motion.
+Both disabling and enabling clear cached action, scan, odometry, coverage, and
+recovery state, publish zero velocity, and establish a DDS publication cutoff.
+Motion requires new scan, odometry, and action publications after that cutoff.
+Scan and odometry expire after 0.5 seconds, actions after 1 second, using both
+simulated age and a wall-clock watchdog. Negative ages after clock rewind also
+stop motion. Automatic stall recovery lasts at most `recovery_duration` (2 seconds
+by default), then gives forward policy actions another progress interval.
+
+Each training reset acknowledges controller disable before resetting Gazebo,
+then clears the mapper and `/observation_builder/reset` (`std_srvs/Trigger`).
+The builder clears all cached inputs, rejects earlier DDS publications, and tags
+observations with its new episode epoch. Only after these acknowledgements does
+the trainer enable the controller and wait for fresh sensors and a matching
+observation. Service discovery, responses, fresh sensors, and subsequent
+observations each have a wall-clock `reset_timeout_seconds` deadline (10 seconds
+by default). A timeout aborts training and requests a controller stop.
 
 ## Observe autonomous operation
 
@@ -149,8 +173,9 @@ specific. Run a full training/evaluation campaign before making claims about
 coverage or collision performance.
 
 The tested Gazebo Sim 8.11.0 runtime stops Burger odometry after a full world
-reset even though scans continue. Training correctly waits for fresh odometry
-and produces no checkpoint in that environment. Upstream's DiffDrive system
+reset even though scans continue. Training waits for fresh odometry, reports an
+error when its wall-clock deadline expires, and produces no checkpoint in that
+environment. Upstream's DiffDrive system
 documents rewind support as unfinished. Resolve that simulator behavior before
 expecting the training commands above to finish; changing the mapper freshness
 barrier or silently avoiding full reset would invalidate the episode contract.

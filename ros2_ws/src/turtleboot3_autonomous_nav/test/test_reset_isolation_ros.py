@@ -11,8 +11,8 @@ from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.task import Future
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Bool, Float32, Float32MultiArray
-from std_srvs.srv import Trigger
+from std_msgs.msg import Bool, Float32, Float32MultiArray, MultiArrayDimension
+from std_srvs.srv import SetBool, Trigger
 
 from turtleboot3_autonomous_nav.coverage_mapper import CoverageMapper
 from turtleboot3_autonomous_nav import dqn_trainer
@@ -83,13 +83,12 @@ def test_trainer_delayed_messages_cannot_start_or_contaminate_episode(monkeypatc
 
     def exercise(trainer):
         trainer._reset_gate.world_reset_succeeded()
-        ack = Future()
-        ack.set_result(
-            Trigger.Response(
-                success=True, message=json.dumps({"cutoff_ns": 1_000, "epoch": 1})
-            )
+        ack = Trigger.Response(
+            success=True, message=json.dumps({"cutoff_ns": 1_000, "epoch": 1})
         )
         trainer._on_mapper_reset(ack)
+        trainer._on_builder_reset(ack)
+        trainer._on_controller_enabled(SetBool.Response(success=True, message=ack.message))
         old_odom, old_scan = sensor_messages(90)
         for timestamp in (999, 1_000, 0):
             trainer._on_odometry(old_odom, delivery(timestamp))
@@ -101,6 +100,7 @@ def test_trainer_delayed_messages_cannot_start_or_contaminate_episode(monkeypatc
         trainer._on_scan(fresh_scan, delivery(1_002))
         assert trainer._running_episode
         observation = Float32MultiArray(data=[0.0] * 86)
+        observation.layout.dim = [MultiArrayDimension(label='episode:1', size=86, stride=86)]
         trainer._on_observation(observation, delivery(999))
         trainer._on_coverage(Float32(data=0.9), delivery(999))
         trainer._on_intervention(Bool(data=True), delivery(999))

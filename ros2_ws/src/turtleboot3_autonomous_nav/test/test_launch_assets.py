@@ -56,6 +56,12 @@ def test_launch_has_one_policy_and_controller(mode, policy, monkeypatch):
         trainer = nodes[executables.index('dqn_trainer')]
         assert evaluate_parameters(context, trainer._Node__parameters)[-1]['max_episodes'] == 7
     else:
+        context.launch_configurations['max_steps'] = '12'
+        context.launch_configurations['target_coverage'] = '0.4'
+        explorer = nodes[executables.index('dqn_explorer')]
+        params = evaluate_parameters(context, explorer._Node__parameters)[-1]
+        assert params['max_steps'] == 12
+        assert params['target_coverage'] == 0.4
         rviz = nodes[executables.index('rviz2')]
         context.launch_configurations['use_rviz'] = 'false'
         assert not rviz.condition.evaluate(context)

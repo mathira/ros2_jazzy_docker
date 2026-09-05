@@ -11,6 +11,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 import json
 import math
+import time
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +78,8 @@ class TrainerConfig:
             raise ValueError("epsilon_decay must be in (0.0, 1.0]")
         if not 0.0 < self.gamma <= 1.0 or self.learning_rate <= 0.0:
             raise ValueError("gamma and learning_rate must be positive and bounded")
+        if not math.isfinite(self.reset_timeout_seconds) or self.reset_timeout_seconds <= 0:
+            raise ValueError("reset_timeout_seconds must be finite and positive")
 
 
 class EpisodeResetGate:
@@ -368,10 +371,11 @@ def main(args: list[str] | None = None) -> None:
     import rclpy
     from nav_msgs.msg import Odometry
     from rclpy.node import Node
+    from rclpy.clock import Clock, ClockType
     from ros_gz_interfaces.srv import ControlWorld
     from sensor_msgs.msg import LaserScan
     from std_msgs.msg import Bool, Float32, Float32MultiArray, Int32
-    from std_srvs.srv import Trigger
+    from std_srvs.srv import SetBool, Trigger
 
     class DQNTrainer(Node):
         """Collect asynchronous ROS observations into bounded DQN episodes."""
@@ -409,6 +413,8 @@ def main(args: list[str] | None = None) -> None:
             self.create_subscription(LaserScan, "/scan", self._on_scan, 10)
             self._world_control = self.create_client(ControlWorld, "/world/dqn/control")
             self._mapper_reset = self.create_client(Trigger, "/coverage_mapper/reset")
+            self._builder_reset = self.create_client(Trigger, "/observation_builder/reset")
+            self._controller_enable = self.create_client(SetBool, "/safe_motion_controller/enable")
 
             self._coverage = 0.0
             self._coverage_baseline = 0.0
@@ -429,6 +435,13 @@ def main(args: list[str] | None = None) -> None:
             self._evaluation_coverages: list[float] = []
             self._best_mean_coverage = float("-inf")
             self._global_steps = 0
+            self._failed = False
+            self._deadline_ns: int | None = None
+            self._wait_reason = ""
+            self._pending_service = None
+            self._pending_future = None
+            self._observation_epoch: int | None = None
+            self.create_timer(0.1, self._poll_reset, clock=Clock(clock_type=ClockType.STEADY_TIME))
             self._model_directory = Path(
                 str(self.declare_parameter("model_directory", "models").value)
             )
@@ -478,6 +491,7 @@ def main(args: list[str] | None = None) -> None:
                 return
             self._reset_gate.start_episode()
             self._running_episode = True
+            self._arm_deadline("post-reset observation")
             self._coverage = 0.0
             self._coverage_baseline = 0.0
             self._previous_state = None
@@ -498,6 +512,10 @@ def main(args: list[str] | None = None) -> None:
                 source_timestamp_ns(info)
             ):
                 return
+            if not message.layout.dim or message.layout.dim[0].label != (
+                f"episode:{self._observation_epoch}"
+            ):
+                return
             try:
                 observation = tuple(float(value) for value in message.data)
                 if len(observation) != self._config.observation_size or not all(
@@ -507,6 +525,7 @@ def main(args: list[str] | None = None) -> None:
             except (TypeError, ValueError) as error:
                 self.get_logger().warning(f"Rejected DQN observation: {error}")
                 return
+            self._arm_deadline("episode observation")
 
             if self._previous_state is not None and self._previous_action is not None:
                 self._record_transition(observation)
@@ -612,76 +631,134 @@ def main(args: list[str] | None = None) -> None:
                 and not self._is_evaluation
             ):
                 self.get_logger().info("Configured training episode limit reached.")
+                self._request_service(
+                    self._controller_enable, SetBool.Request(data=False),
+                    "controller stop", lambda _: self._shutdown(),
+                )
                 return
             self._request_world_reset()
 
         def _request_world_reset(self) -> None:
+            self._running_episode = False
+            self._previous_state = self._previous_action = None
+            self._observation_epoch = None
             self._reset_gate.begin_reset()
-            if not self._world_control.wait_for_service(
-                timeout_sec=self._config.reset_timeout_seconds
-            ):
-                self.get_logger().error(
-                    "Gazebo ControlWorld service /world/dqn/control is unavailable; "
-                    "training cannot continue safely."
-                )
-                rclpy.shutdown()
-                return
+            self._request_service(
+                self._controller_enable, SetBool.Request(data=False),
+                "controller disable before reset", self._request_world_after_stop,
+            )
+
+        def _request_world_after_stop(self, response: Any) -> None:
             request = ControlWorld.Request()
             configure_reset_all(request)
-            future = self._world_control.call_async(request)
-            future.add_done_callback(self._on_world_reset)
+            self._request_service(
+                self._world_control, request, "Gazebo world reset", self._on_world_reset,
+            )
 
-        def _on_world_reset(self, future: Any) -> None:
-            try:
-                response = future.result()
-            except Exception as error:
-                self.get_logger().error(f"Gazebo world reset failed: {error}")
-                rclpy.shutdown()
-                return
-            if not response.success:
-                self.get_logger().error(
-                    f"Gazebo world reset was rejected: {response.message}"
-                )
-                rclpy.shutdown()
-                return
+        def _on_world_reset(self, response: Any) -> None:
             self._reset_gate.world_reset_succeeded()
             self._request_mapper_reset()
 
         def _request_mapper_reset(self) -> None:
-            if not self._mapper_reset.wait_for_service(
-                timeout_sec=self._config.reset_timeout_seconds
-            ):
-                self.get_logger().error(
-                    "Coverage mapper reset service /coverage_mapper/reset is unavailable; "
-                    "training cannot continue with mixed episode coverage."
-                )
-                rclpy.shutdown()
-                return
-            future = self._mapper_reset.call_async(Trigger.Request())
-            future.add_done_callback(self._on_mapper_reset)
+            self._request_service(
+                self._mapper_reset, Trigger.Request(), "coverage mapper reset", self._on_mapper_reset,
+            )
 
-        def _on_mapper_reset(self, future: Any) -> None:
-            try:
-                response = future.result()
-            except Exception as error:
-                self.get_logger().error(f"Coverage mapper reset failed: {error}")
-                rclpy.shutdown()
-                return
-            if not response.success:
-                self.get_logger().error(
-                    f"Coverage mapper reset was rejected: {response.message}"
-                )
-                rclpy.shutdown()
-                return
-            try:
-                cutoff_ns, epoch = parse_reset_provenance(response.message)
-            except ValueError as error:
-                self.get_logger().error(f"Invalid mapper reset provenance: {error}")
-                rclpy.shutdown()
-                return
-            self._reset_gate.mapper_reset_succeeded(cutoff_ns, epoch)
+        def _on_mapper_reset(self, response: Any) -> None:
+            self._mapper_provenance = parse_reset_provenance(response.message)
+            self._request_service(
+                self._builder_reset, Trigger.Request(), "observation builder reset", self._on_builder_reset,
+            )
+
+        def _on_builder_reset(self, response: Any) -> None:
+            self._builder_cutoff, self._observation_epoch = parse_reset_provenance(response.message)
+            self._request_service(
+                self._controller_enable, SetBool.Request(data=True),
+                "controller enable after reset", self._on_controller_enabled,
+            )
+
+        def _on_controller_enabled(self, response: Any) -> None:
+            controller_cutoff, _ = parse_reset_provenance(response.message)
+            mapper_cutoff, epoch = self._mapper_provenance
+            self._reset_gate.mapper_reset_succeeded(
+                max(mapper_cutoff, self._builder_cutoff, controller_cutoff), epoch,
+            )
             self._coverage = 0.0
             self._coverage_baseline = 0.0
+            self._intervention_active = self._recovery_active = False
+            self._arm_deadline("post-reset odometry and scan")
+
+        def _arm_deadline(self, reason: str) -> None:
+            self._wait_reason = reason
+            self._deadline_ns = time.monotonic_ns() + int(
+                self._config.reset_timeout_seconds * 1_000_000_000
+            )
+
+        def _request_service(self, client, request, label, callback) -> None:
+            """Bound both discovery and response without blocking the executor."""
+            self._pending_service = (client, request, label, callback)
+            self._arm_deadline(f"{label} service discovery")
+
+        def _poll_reset(self) -> None:
+            if self._deadline_ns is not None and time.monotonic_ns() >= self._deadline_ns:
+                if self._failed:
+                    self.get_logger().error("Controller stop acknowledgement timed out.")
+                    self._shutdown()
+                else:
+                    self._fail(f"Timed out waiting for {self._wait_reason}.")
+                return
+            if self._pending_service is None:
+                return
+            client, request, label, callback = self._pending_service
+            if not client.service_is_ready():
+                return
+            self._pending_service = None
+            self._arm_deadline(f"{label} response")
+            try:
+                future = client.call_async(request)
+                self._pending_future = future
+                future.add_done_callback(lambda result: self._service_done(result, label, callback))
+            except Exception as error:
+                self._fail(f"{label} failed: {error}")
+
+        def _service_done(self, future, label, callback) -> None:
+            if future is not self._pending_future:
+                return
+            self._pending_future = None
+            self._deadline_ns = None
+            try:
+                response = future.result()
+                if response is None or not response.success:
+                    raise RuntimeError(getattr(response, 'message', 'request rejected'))
+                callback(response)
+            except Exception as error:
+                if self._failed:
+                    self.get_logger().error(f"Controller stop failed: {error}")
+                    self._shutdown()
+                else:
+                    self._fail(f"{label} failed: {error}")
+
+        def _fail(self, message: str) -> None:
+            if self._failed:
+                self._shutdown()
+                return
+            self.get_logger().error(message + " Training cannot continue safely.")
+            self._failed = True
+            self._running_episode = False
+            self._previous_state = self._previous_action = None
+            self._reset_gate.begin_reset()
+            future, self._pending_future = self._pending_future, None
+            if future is not None:
+                future.cancel()
+            self._request_service(
+                self._controller_enable, SetBool.Request(data=False),
+                "controller stop after failure", lambda _: self._shutdown(),
+            )
+
+        def _shutdown(self) -> None:
+            self._deadline_ns = None
+            if rclpy.ok():
+                rclpy.shutdown()
 
         def _epsilon(self) -> float:
             decayed = self._config.epsilon_start * (
@@ -708,10 +785,14 @@ def main(args: list[str] | None = None) -> None:
             )
 
     rclpy.init(args=args)
-    node = DQNTrainer()
+    node = None
     try:
+        node = DQNTrainer()
         rclpy.spin(node)
+        if node._failed:
+            raise RuntimeError('Training aborted after a reset or sensor safety failure')
     finally:
-        node.destroy_node()
+        if node is not None:
+            node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

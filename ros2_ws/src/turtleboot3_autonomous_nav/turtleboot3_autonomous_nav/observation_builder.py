@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
+import json
+import time
+from typing import Any
+
 import numpy as np
 import rclpy
 from nav_msgs.msg import OccupancyGrid, Odometry
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, MultiArrayDimension
+from std_srvs.srv import Trigger
 
 from turtleboot3_autonomous_nav.observation import LOCAL_PATCH_SIZE, build_observation
+from turtleboot3_autonomous_nav.reset_provenance import (
+    is_post_reset_timestamp,
+    source_timestamp_ns,
+)
 
 
 class ObservationBuilder(Node):
@@ -22,19 +31,43 @@ class ObservationBuilder(Node):
         self._position: tuple[float, float] | None = None
         self._linear_velocity = 0.0
         self._angular_velocity = 0.0
+        self._reset_cutoff_ns: int | None = None
+        self._reset_epoch = 0
         self._publisher = self.create_publisher(Float32MultiArray, '/dqn_observation', 10)
         self.create_subscription(LaserScan, '/scan', self._on_scan, 10)
         self.create_subscription(OccupancyGrid, '/coverage_map', self._on_map, 10)
         self.create_subscription(Odometry, '/odom', self._on_odometry, 10)
+        self.create_service(Trigger, '/observation_builder/reset', self._on_reset)
 
-    def _on_scan(self, message: LaserScan) -> None:
+    def _on_reset(self, request: Trigger.Request, response: Trigger.Response):
+        """Clear cached inputs after the mapper reset and establish an epoch."""
+        self._latest_scan = self._map = self._position = None
+        self._linear_velocity = self._angular_velocity = 0.0
+        self._reset_epoch += 1
+        self._reset_cutoff_ns = time.time_ns()
+        response.success = True
+        response.message = json.dumps({
+            'cutoff_ns': self._reset_cutoff_ns, 'epoch': self._reset_epoch,
+        })
+        return response
+
+    def _accepts(self, info: Any) -> bool:
+        return is_post_reset_timestamp(source_timestamp_ns(info), self._reset_cutoff_ns)
+
+    def _on_scan(self, message: LaserScan, info: Any) -> None:
+        if not self._accepts(info):
+            return
         self._latest_scan = np.asarray(message.ranges, dtype=float)
         self._publish_if_ready()
 
-    def _on_map(self, message: OccupancyGrid) -> None:
+    def _on_map(self, message: OccupancyGrid, info: Any) -> None:
+        if not self._accepts(info):
+            return
         self._map = message
 
-    def _on_odometry(self, message: Odometry) -> None:
+    def _on_odometry(self, message: Odometry, info: Any) -> None:
+        if not self._accepts(info):
+            return
         position = message.pose.pose.position
         self._position = (position.x, position.y)
         self._linear_velocity = message.twist.twist.linear.x
@@ -49,7 +82,11 @@ class ObservationBuilder(Node):
             self._linear_velocity,
             self._angular_velocity,
         )
-        self._publisher.publish(Float32MultiArray(data=observation.tolist()))
+        message = Float32MultiArray(data=observation.tolist())
+        message.layout.dim = [MultiArrayDimension(
+            label=f'episode:{self._reset_epoch}', size=len(observation), stride=len(observation)
+        )]
+        self._publisher.publish(message)
 
     @staticmethod
     def _local_grid_patch(

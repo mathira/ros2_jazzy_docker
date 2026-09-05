@@ -3,14 +3,24 @@
 from __future__ import annotations
 
 import math
+import json
+import time
+from typing import Any
 
 import numpy as np
 import rclpy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.clock import Clock, ClockType
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool, Float32, Int32
+from std_srvs.srv import SetBool
+
+from turtleboot3_autonomous_nav.reset_provenance import (
+    is_post_reset_timestamp,
+    source_timestamp_ns,
+)
 
 from turtleboot3_autonomous_nav.control import (
     RECOVER,
@@ -39,6 +49,7 @@ class SafeMotionController(Node):
         self.declare_parameter('action_timeout', 1.0)
         self.declare_parameter('progress_distance', 0.03)
         self.declare_parameter('progress_timeout', 3.0)
+        self.declare_parameter('recovery_duration', 2.0)
         self.declare_parameter('coverage_delta', 0.0001)
         self.declare_parameter('control_rate', 10.0)
 
@@ -67,14 +78,26 @@ class SafeMotionController(Node):
             float(self.get_parameter('progress_timeout').value) * 1_000_000_000
         )
         self._coverage_delta = float(self.get_parameter('coverage_delta').value)
+        self._recovery_duration_ns = int(
+            float(self.get_parameter('recovery_duration').value) * 1_000_000_000
+        )
+        if self._recovery_duration_ns <= 0:
+            raise ValueError('recovery_duration must be positive')
         now = self._now_ns()
+        self._enabled = False
+        self._reset_cutoff_ns = time.time_ns()
+        self._reset_epoch = 0
         self._scan: LaserScan | None = None
         self._scan_time_ns: int | None = None
         self._action = RECOVER
         self._action_time_ns: int | None = None
+        self._odom_time_ns: int | None = None
+        self._receipt_times: dict[str, int] = {}
         self._last_position: tuple[float, float] | None = None
         self._last_coverage: float | None = None
         self._last_progress_ns = now
+        self._recovery_started_ns: int | None = None
+        self._policy_recovery_exhausted = False
 
         self._cmd_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         self._intervention_publisher = self.create_publisher(
@@ -85,18 +108,58 @@ class SafeMotionController(Node):
         self.create_subscription(LaserScan, '/scan', self._on_scan, 10)
         self.create_subscription(Odometry, '/odom', self._on_odometry, 10)
         self.create_subscription(Float32, '/coverage_metrics', self._on_coverage, 10)
+        self.create_service(SetBool, '/safe_motion_controller/enable', self._on_enable)
         control_rate = float(self.get_parameter('control_rate').value)
-        self.create_timer(1.0 / max(control_rate, 1.0), self._on_control_timer)
+        self.create_timer(
+            1.0 / max(control_rate, 1.0), self._on_control_timer,
+            clock=Clock(clock_type=ClockType.STEADY_TIME),
+        )
 
-    def _on_action(self, message: Int32) -> None:
+    def _on_enable(self, request: SetBool.Request, response: SetBool.Response):
+        """Acknowledge zero motion and discard every prior control input."""
+        self._enabled = bool(request.data)
+        self._scan = None
+        self._scan_time_ns = self._odom_time_ns = self._action_time_ns = None
+        self._receipt_times.clear()
+        self._last_position = self._last_coverage = None
+        self._last_progress_ns = self._now_ns()
+        self._recovery_started_ns = None
+        self._policy_recovery_exhausted = False
+        self.publish_stop()
+        self._reset_cutoff_ns = time.time_ns()
+        self._reset_epoch += 1
+        response.success = True
+        response.message = json.dumps({
+            'cutoff_ns': self._reset_cutoff_ns, 'epoch': self._reset_epoch,
+        })
+        return response
+
+    def _accepts(self, info: Any) -> bool:
+        return self._enabled and is_post_reset_timestamp(
+            source_timestamp_ns(info), self._reset_cutoff_ns
+        )
+
+    def _on_action(self, message: Int32, info: Any) -> None:
+        if not self._accepts(info):
+            return
         self._action = int(message.data)
         self._action_time_ns = self._now_ns()
+        self._receipt_times['action'] = time.monotonic_ns()
+        if self._action != RECOVER:
+            self._policy_recovery_exhausted = False
 
-    def _on_scan(self, message: LaserScan) -> None:
+    def _on_scan(self, message: LaserScan, info: Any) -> None:
+        if not self._accepts(info):
+            return
         self._scan = message
         self._scan_time_ns = self._now_ns()
+        self._receipt_times['scan'] = time.monotonic_ns()
 
-    def _on_odometry(self, message: Odometry) -> None:
+    def _on_odometry(self, message: Odometry, info: Any) -> None:
+        if not self._accepts(info):
+            return
+        self._odom_time_ns = self._now_ns()
+        self._receipt_times['odom'] = time.monotonic_ns()
         position = message.pose.pose.position
         current = (position.x, position.y)
         if self._last_position is None:
@@ -106,7 +169,9 @@ class SafeMotionController(Node):
             self._last_progress_ns = self._now_ns()
             self._last_position = current
 
-    def _on_coverage(self, message: Float32) -> None:
+    def _on_coverage(self, message: Float32, info: Any) -> None:
+        if not self._accepts(info):
+            return
         coverage = float(message.data)
         if self._last_coverage is None:
             self._last_coverage = coverage
@@ -121,22 +186,41 @@ class SafeMotionController(Node):
             self._publish_decision(stale_twist())
             return
         assert self._scan is not None
+        if self._recovery_started_ns is not None and (
+            now - self._recovery_started_ns >= self._recovery_duration_ns
+        ):
+            self._recovery_started_ns = None
+            self._last_progress_ns = now
+            self._policy_recovery_exhausted = self._action == RECOVER
+        if self._action == RECOVER and self._policy_recovery_exhausted:
+            self._publish_decision(stale_twist())
+            return
+        stalled = now - self._last_progress_ns >= self._progress_timeout_ns
+        if self._recovery_started_ns is None and (stalled or self._action == RECOVER):
+            self._recovery_started_ns = now
         decision = safe_twist(
             self._action,
             _control_sector_ranges(self._scan),
-            now - self._last_progress_ns >= self._progress_timeout_ns,
+            self._recovery_started_ns is not None,
             self._config,
         )
         self._publish_decision(decision)
 
     def _data_is_stale(self, now_ns: int) -> bool:
-        return (
-            self._scan is None
-            or self._scan_time_ns is None
-            or self._action_time_ns is None
-            or now_ns - self._scan_time_ns > self._sensor_timeout_ns
-            or now_ns - self._action_time_ns > self._action_timeout_ns
-        )
+        if not self._enabled or self._scan is None:
+            return True
+        wall_now = time.monotonic_ns()
+        for name, stamp, timeout in (
+            ('scan', self._scan_time_ns, self._sensor_timeout_ns),
+            ('odom', self._odom_time_ns, self._sensor_timeout_ns),
+            ('action', self._action_time_ns, self._action_timeout_ns),
+        ):
+            receipt = self._receipt_times.get(name)
+            if stamp is None or receipt is None or not 0 <= now_ns - stamp <= timeout:
+                return True
+            if wall_now - receipt > timeout:
+                return True
+        return False
 
     def _publish_decision(self, decision: TwistDecision) -> None:
         command = Twist()
