@@ -15,6 +15,10 @@ from pathlib import Path
 from typing import Any
 
 from turtleboot3_autonomous_nav.dqn import DQNPolicy, ReplayBuffer, save_checkpoint
+from turtleboot3_autonomous_nav.reset_provenance import (
+    is_post_reset_timestamp,
+    source_timestamp_ns,
+)
 
 
 @dataclass(frozen=True)
@@ -78,15 +82,15 @@ class TrainerConfig:
 class EpisodeResetGate:
     """Accept only data received after both reset operations acknowledge.
 
-    Subscription callbacks retain monotonically increasing local sequences.
-    The mapper-reset acknowledgement snapshots those sequences; a new episode
-    needs later odometry and scan callbacks after the mapper has cleared its
-    coverage state.
+    The mapper supplies a reset epoch and system-time cutoff in its reset ACK.
+    A new episode needs later DDS publication timestamps for odometry and scan,
+    so callback delivery order and simulation-clock rewinds cannot admit old data.
     """
 
     def __init__(self) -> None:
         self._phase = "idle"
-        self._minimum_sequence = {"odom": 0, "scan": 0}
+        self._cutoff_ns: int | None = None
+        self._epoch: int | None = None
         self._fresh = {"odom": False, "scan": False}
 
     def begin_reset(self) -> None:
@@ -99,28 +103,35 @@ class EpisodeResetGate:
             raise RuntimeError("world reset acknowledgement is out of order")
         self._phase = "waiting_for_mapper"
 
-    def mapper_reset_succeeded(self, odom_sequence: int, scan_sequence: int) -> None:
-        """Arm the gate using callback sequences observed after both ACKs."""
+    def mapper_reset_succeeded(self, cutoff_ns: int, epoch: int) -> None:
+        """Arm the gate with provenance supplied by the mapper reset ACK."""
         if self._phase != "waiting_for_mapper":
             raise RuntimeError("mapper reset acknowledgement is out of order")
-        self._minimum_sequence = {
-            "odom": int(odom_sequence),
-            "scan": int(scan_sequence),
-        }
+        if int(cutoff_ns) < 0 or int(epoch) < 1:
+            raise ValueError("mapper reset provenance must be non-negative and current")
+        self._cutoff_ns = int(cutoff_ns)
+        self._epoch = int(epoch)
         self._fresh = {"odom": False, "scan": False}
         self._phase = "waiting_for_fresh_data"
 
-    def record_sensor(self, name: str, sequence: int) -> bool:
-        """Record a post-ACK required sensor callback and return whether accepted."""
-        if name not in self._minimum_sequence:
+    def record_sensor(self, name: str, stamp_ns: int) -> bool:
+        """Record a post-ACK required sensor timestamp and return acceptance."""
+        if name not in self._fresh:
             raise ValueError(f"unknown required sensor: {name}")
-        if (
-            self._phase != "waiting_for_fresh_data"
-            or int(sequence) <= self._minimum_sequence[name]
+        if self._phase != "waiting_for_fresh_data" or not self.accepts_timestamp(
+            stamp_ns
         ):
             return False
         self._fresh[name] = True
         return True
+
+    def accepts_timestamp(self, stamp_ns: int) -> bool:
+        """Keep filtering old publications even after the episode has started."""
+        return (
+            self._phase in ("waiting_for_fresh_data", "running")
+            and self._cutoff_ns is not None
+            and is_post_reset_timestamp(stamp_ns, self._cutoff_ns)
+        )
 
     @property
     def ready(self) -> bool:
@@ -132,6 +143,28 @@ class EpisodeResetGate:
         if not self.ready:
             raise RuntimeError("cannot start an episode before reset data is fresh")
         self._phase = "running"
+
+
+def parse_reset_provenance(message: str) -> tuple[int, int]:
+    """Parse the mapper-issued reset cutoff and epoch from a Trigger response."""
+    try:
+        payload = json.loads(message)
+        cutoff_ns = payload["cutoff_ns"]
+        epoch = payload["epoch"]
+    except (TypeError, KeyError, ValueError, json.JSONDecodeError) as error:
+        raise ValueError(
+            "mapper reset acknowledgement lacks valid provenance"
+        ) from error
+    if (
+        isinstance(cutoff_ns, bool)
+        or isinstance(epoch, bool)
+        or not isinstance(cutoff_ns, int)
+        or not isinstance(epoch, int)
+        or cutoff_ns < 0
+        or epoch < 1
+    ):
+        raise ValueError("mapper reset acknowledgement has invalid provenance")
+    return cutoff_ns, epoch
 
 
 def episode_reward(
@@ -338,7 +371,7 @@ def main(args: list[str] | None = None) -> None:
     from ros_gz_interfaces.srv import ControlWorld
     from sensor_msgs.msg import LaserScan
     from std_msgs.msg import Bool, Float32, Float32MultiArray, Int32
-    from std_srvs.srv import Empty
+    from std_srvs.srv import Trigger
 
     class DQNTrainer(Node):
         """Collect asynchronous ROS observations into bounded DQN episodes."""
@@ -375,7 +408,7 @@ def main(args: list[str] | None = None) -> None:
             self.create_subscription(Odometry, "/odom", self._on_odometry, 10)
             self.create_subscription(LaserScan, "/scan", self._on_scan, 10)
             self._world_control = self.create_client(ControlWorld, "/world/dqn/control")
-            self._mapper_reset = self.create_client(Empty, "/coverage_mapper/reset")
+            self._mapper_reset = self.create_client(Trigger, "/coverage_mapper/reset")
 
             self._coverage = 0.0
             self._coverage_baseline = 0.0
@@ -389,8 +422,6 @@ def main(args: list[str] | None = None) -> None:
             self._intervention_active = False
             self._recovery_active = False
             self._reset_gate = EpisodeResetGate()
-            self._odom_sequence = 0
-            self._scan_sequence = 0
             self._running_episode = False
             self._is_evaluation = False
             self._training_episodes = 0
@@ -408,7 +439,9 @@ def main(args: list[str] | None = None) -> None:
             for field, value in asdict(defaults).items():
                 self.declare_parameter(field, value)
 
-        def _on_coverage(self, message: Float32) -> None:
+        def _on_coverage(self, message: Float32, info: Any) -> None:
+            if not self._reset_gate.accepts_timestamp(source_timestamp_ns(info)):
+                return
             coverage = float(message.data)
             if not math.isfinite(coverage):
                 return
@@ -416,24 +449,28 @@ def main(args: list[str] | None = None) -> None:
             if self._running_episode:
                 self._coverage = coverage
 
-        def _on_intervention(self, message: Bool) -> None:
+        def _on_intervention(self, message: Bool, info: Any) -> None:
+            if not self._reset_gate.accepts_timestamp(source_timestamp_ns(info)):
+                return
             active = bool(message.data)
             self._intervention_seen |= active and not self._intervention_active
             self._intervention_active = active
 
-        def _on_recovery(self, message: Bool) -> None:
+        def _on_recovery(self, message: Bool, info: Any) -> None:
+            if not self._reset_gate.accepts_timestamp(source_timestamp_ns(info)):
+                return
             active = bool(message.data)
             self._recovery_seen |= active and not self._recovery_active
             self._recovery_active = active
 
-        def _on_odometry(self, _: Odometry) -> None:
-            self._odom_sequence += 1
-            if self._reset_gate.record_sensor("odom", self._odom_sequence):
+        def _on_odometry(self, message: Odometry, info: Any) -> None:
+            stamp_ns = source_timestamp_ns(info)
+            if self._reset_gate.record_sensor("odom", stamp_ns):
                 self._begin_episode_when_reset_data_is_fresh()
 
-        def _on_scan(self, _: LaserScan) -> None:
-            self._scan_sequence += 1
-            if self._reset_gate.record_sensor("scan", self._scan_sequence):
+        def _on_scan(self, message: LaserScan, info: Any) -> None:
+            stamp_ns = source_timestamp_ns(info)
+            if self._reset_gate.record_sensor("scan", stamp_ns):
                 self._begin_episode_when_reset_data_is_fresh()
 
         def _begin_episode_when_reset_data_is_fresh(self) -> None:
@@ -456,8 +493,10 @@ def main(args: list[str] | None = None) -> None:
                 "odometry and scan."
             )
 
-        def _on_observation(self, message: Float32MultiArray) -> None:
-            if not self._running_episode:
+        def _on_observation(self, message: Float32MultiArray, info: Any) -> None:
+            if not self._running_episode or not self._reset_gate.accepts_timestamp(
+                source_timestamp_ns(info)
+            ):
                 return
             try:
                 observation = tuple(float(value) for value in message.data)
@@ -618,19 +657,29 @@ def main(args: list[str] | None = None) -> None:
                 )
                 rclpy.shutdown()
                 return
-            future = self._mapper_reset.call_async(Empty.Request())
+            future = self._mapper_reset.call_async(Trigger.Request())
             future.add_done_callback(self._on_mapper_reset)
 
         def _on_mapper_reset(self, future: Any) -> None:
             try:
-                future.result()
+                response = future.result()
             except Exception as error:
                 self.get_logger().error(f"Coverage mapper reset failed: {error}")
                 rclpy.shutdown()
                 return
-            self._reset_gate.mapper_reset_succeeded(
-                self._odom_sequence, self._scan_sequence
-            )
+            if not response.success:
+                self.get_logger().error(
+                    f"Coverage mapper reset was rejected: {response.message}"
+                )
+                rclpy.shutdown()
+                return
+            try:
+                cutoff_ns, epoch = parse_reset_provenance(response.message)
+            except ValueError as error:
+                self.get_logger().error(f"Invalid mapper reset provenance: {error}")
+                rclpy.shutdown()
+                return
+            self._reset_gate.mapper_reset_succeeded(cutoff_ns, epoch)
             self._coverage = 0.0
             self._coverage_baseline = 0.0
 

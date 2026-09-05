@@ -17,6 +17,7 @@ from turtleboot3_autonomous_nav.dqn_trainer import (
     episode_end_reason,
     episode_reward,
     optimize_replay,
+    parse_reset_provenance,
     save_if_improved,
 )
 
@@ -178,8 +179,8 @@ def test_replay_optimization_increases_the_value_of_a_rewarded_action():
     assert policy.q_values(observation)[0] > before
 
 
-def test_episode_reset_gate_requires_both_acks_and_post_ack_sensor_data():
-    """Queued pre-reset data must never arm a new episode."""
+def test_episode_reset_gate_rejects_delayed_pre_reset_sensor_timestamps():
+    """Queued pre-reset callbacks must never arm a new episode."""
     gate = EpisodeResetGate()
 
     gate.begin_reset()
@@ -187,9 +188,37 @@ def test_episode_reset_gate_requires_both_acks_and_post_ack_sensor_data():
     gate.world_reset_succeeded()
     assert gate.record_sensor("scan", 1) is False
 
-    gate.mapper_reset_succeeded(odom_sequence=4, scan_sequence=7)
-    assert gate.record_sensor("odom", 4) is False
-    assert gate.record_sensor("scan", 7) is False
-    assert gate.record_sensor("odom", 5) is True
-    assert gate.record_sensor("scan", 8) is True
+    gate.mapper_reset_succeeded(cutoff_ns=1_000, epoch=7)
+    assert gate.record_sensor("odom", 999) is False
+    assert gate.record_sensor("scan", 999) is False
+    assert gate.record_sensor("odom", 1_000) is False
+    assert gate.ready is False
+    assert gate.record_sensor("odom", 1_001) is True
+    assert gate.record_sensor("scan", 1_001) is True
     assert gate.ready is True
+
+    gate.start_episode()
+    assert gate.accepts_timestamp(999) is False
+    assert gate.accepts_timestamp(1_002) is True
+    gate.begin_reset()
+    assert gate.accepts_timestamp(1_003) is False
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "null",
+        "[]",
+        "{}",
+        '{"cutoff_ns": true, "epoch": 1}',
+        '{"cutoff_ns": 1, "epoch": 0}',
+    ],
+)
+def test_invalid_reset_acknowledgement_cannot_arm_an_episode(message):
+    with pytest.raises(ValueError):
+        parse_reset_provenance(message)
+
+
+def test_mapper_reset_provenance_is_parsed_from_the_reset_acknowledgement():
+    """The trainer must use the mapper-issued cutoff, not local delivery order."""
+    assert parse_reset_provenance('{"cutoff_ns": 123, "epoch": 4}') == (123, 4)

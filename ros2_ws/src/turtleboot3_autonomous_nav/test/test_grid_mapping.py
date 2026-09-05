@@ -1,6 +1,7 @@
 import numpy as np
 
 from turtleboot3_autonomous_nav.grid_mapping import OccupancyGridModel
+from turtleboot3_autonomous_nav.reset_provenance import is_post_reset_timestamp
 
 
 def test_hit_marks_free_cells_then_occupied_endpoint():
@@ -108,3 +109,11 @@ def test_reset_clears_all_episode_coverage_and_cell_evidence():
     assert grid.value_at(1.0, 0.0) == -1
     grid.update_scan((0.0, 0.0, 0.0), np.array([3.0]), 0.0, 1.0, 8.0)
     assert grid.value_at(3.0, 0.0) == -1
+
+
+def test_reset_cutoff_rejects_a_delayed_pre_reset_sensor_message():
+    """A queued scan from before reset must not repopulate the cleared grid."""
+    assert is_post_reset_timestamp(stamp_ns=999, cutoff_ns=1_000) is False
+    assert is_post_reset_timestamp(stamp_ns=1_000, cutoff_ns=1_000) is False
+    assert is_post_reset_timestamp(stamp_ns=1_001, cutoff_ns=1_000) is True
+    assert is_post_reset_timestamp(stamp_ns=0, cutoff_ns=1_000) is False
