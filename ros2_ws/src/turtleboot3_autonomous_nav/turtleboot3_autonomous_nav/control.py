@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 import numpy as np
 
@@ -44,6 +45,44 @@ def stale_twist() -> TwistDecision:
     return TwistDecision(0.0, 0.0, intervention=True, recovery=False)
 
 
+def control_sector_ranges(
+    scan_ranges: np.ndarray,
+    angle_min: float,
+    angle_increment: float,
+    range_max: float,
+) -> np.ndarray:
+    """Reduce a scan to ``[front, left, right]`` safety-sector minima.
+
+    A sector with no positive finite reading is represented by ``0.0`` rather
+    than assumed clear. A positive infinite return represents a valid
+    out-of-range reading only when the scan provides a valid ``range_max``.
+    """
+    ranges = np.asarray(scan_ranges, dtype=float).reshape(-1)
+    if ranges.size == 0 or not np.isfinite(angle_increment) or angle_increment == 0.0:
+        return np.zeros(3, dtype=float)
+
+    angles = angle_min + np.arange(ranges.size) * angle_increment
+    wrapped_angles = _wrap_angles(angles)
+    masks = (
+        np.abs(wrapped_angles) <= math.pi / 6.0,
+        (wrapped_angles > math.pi / 6.0)
+        & (wrapped_angles <= 5.0 * math.pi / 6.0),
+        (wrapped_angles < -math.pi / 6.0)
+        & (wrapped_angles >= -5.0 * math.pi / 6.0),
+    )
+    maximum = float(range_max)
+    has_valid_maximum = np.isfinite(maximum) and maximum > 0.0
+    sectors = np.zeros(3, dtype=float)
+    for index, mask in enumerate(masks):
+        sector = ranges[mask]
+        finite_positive = sector[np.isfinite(sector) & (sector > 0.0)]
+        if finite_positive.size:
+            sectors[index] = float(np.min(finite_positive))
+        elif has_valid_maximum and np.any(np.isposinf(sector)):
+            sectors[index] = maximum
+    return sectors
+
+
 def safe_twist(
     action: int,
     sector_ranges: np.ndarray,
@@ -53,7 +92,7 @@ def safe_twist(
     """Translate an action into a safe twist using ``[front, left, right]`` ranges."""
     ranges = np.asarray(sector_ranges, dtype=float).reshape(-1)
     front_range = ranges[0] if ranges.size else 0.0
-    front_is_blocked = not np.isfinite(front_range) or front_range < config.stop_distance
+    front_is_blocked = not np.isfinite(front_range) or front_range <= config.stop_distance
 
     if stalled or action == RECOVER:
         return TwistDecision(
@@ -113,3 +152,7 @@ def _clearer_side_turn(
     direction = 1.0 if left_clearance >= right_clearance else -1.0
     magnitude = _clamp_positive(turn_speed, config.max_angular_speed)
     return direction * magnitude
+
+
+def _wrap_angles(angles: np.ndarray) -> np.ndarray:
+    return (angles + math.pi) % (2.0 * math.pi) - math.pi

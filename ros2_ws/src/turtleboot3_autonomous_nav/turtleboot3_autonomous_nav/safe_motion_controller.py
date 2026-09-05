@@ -16,6 +16,7 @@ from turtleboot3_autonomous_nav.control import (
     RECOVER,
     ControlConfig,
     TwistDecision,
+    control_sector_ranges,
     safe_twist,
     stale_twist,
 )
@@ -155,30 +156,12 @@ class SafeMotionController(Node):
 
 def _control_sector_ranges(message: LaserScan) -> np.ndarray:
     """Return minimum ``[front, left, right]`` clearances from a scan."""
-    ranges = np.asarray(message.ranges, dtype=float)
-    if ranges.size == 0 or message.angle_increment == 0.0:
-        return np.zeros(3, dtype=float)
-    angles = message.angle_min + np.arange(ranges.size) * message.angle_increment
-    fallback = float(message.range_max)
-    if not np.isfinite(fallback) or fallback <= 0.0:
-        fallback = 0.0
-    masks = (
-        np.abs(_wrap_angles(angles)) <= math.pi / 6.0,
-        (_wrap_angles(angles) > math.pi / 6.0)
-        & (_wrap_angles(angles) <= 5.0 * math.pi / 6.0),
-        (_wrap_angles(angles) < -math.pi / 6.0)
-        & (_wrap_angles(angles) >= -5.0 * math.pi / 6.0),
+    return control_sector_ranges(
+        np.asarray(message.ranges, dtype=float),
+        message.angle_min,
+        message.angle_increment,
+        message.range_max,
     )
-    sectors = np.zeros(3, dtype=float)
-    for index, mask in enumerate(masks):
-        valid = ranges[mask]
-        valid = valid[np.isfinite(valid) & (valid > 0.0)]
-        sectors[index] = float(np.min(valid)) if valid.size else fallback
-    return sectors
-
-
-def _wrap_angles(angles: np.ndarray) -> np.ndarray:
-    return (angles + math.pi) % (2.0 * math.pi) - math.pi
 
 
 def main(args: list[str] | None = None) -> None:

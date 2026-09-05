@@ -5,6 +5,7 @@ from turtleboot3_autonomous_nav.control import (
     FORWARD,
     SOFT_LEFT,
     ControlConfig,
+    control_sector_ranges,
     safe_twist,
     stale_twist,
 )
@@ -19,6 +20,34 @@ def test_front_obstacle_overrides_forward_action():
         ControlConfig(stop_distance=0.20),
     )
 
+    assert result.linear_x == 0.0
+    assert result.intervention is True
+
+
+def test_stop_distance_boundary_overrides_forward_action():
+    """A return exactly at the stop distance is not safe clearance."""
+    result = safe_twist(
+        FORWARD,
+        np.array([0.20, 2.0, 2.0]),
+        False,
+        ControlConfig(stop_distance=0.20),
+    )
+
+    assert result.linear_x == 0.0
+    assert result.intervention is True
+
+
+def test_invalid_front_scan_sector_remains_blocked_despite_range_max():
+    """A fresh scan with no positive front return cannot imply open space."""
+    sectors = control_sector_ranges(
+        np.array([2.0, np.nan, 0.0, np.nan, 2.0]),
+        angle_min=-np.pi / 2.0,
+        angle_increment=np.pi / 4.0,
+        range_max=3.5,
+    )
+    result = safe_twist(FORWARD, sectors, False, ControlConfig(stop_distance=0.20))
+
+    assert sectors[0] == 0.0
     assert result.linear_x == 0.0
     assert result.intervention is True
 
