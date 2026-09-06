@@ -12,6 +12,59 @@ watchdog, clearance checks, and recovery logic can override policy actions.
 Training replaces the explorer with `dqn_trainer`, including world/map resets,
 replay updates, target-network synchronization, and epsilon-zero evaluations.
 
+## Relación con la consigna PRIA
+
+La misión parte de la pose inicial del TurtleBot3 Burger en el escenario
+`turtlebot3_dqn_stage4`. Una vez iniciado `mission.launch.py`, el robot
+monitorea la mayor área observable posible sin comandos de conducción manual.
+La arquitectura separa explícitamente adquisición de información, decisión y
+actuación:
+
+```text
+/scan + /odom
+      │
+      ├─ coverage_mapper ──> /coverage_map + /coverage_metrics
+      ├─ observation_builder ──> /dqn_observation
+      ├─ dqn_explorer ──> /exploration_action
+      └─ safe_motion_controller ──> /cmd_vel
+```
+
+| Criterio de la consigna | Implementación y evidencia |
+| --- | --- |
+| Entorno compatible con ROS 2 | ROS 2 Jazzy, Gazebo Harmonic y el launcher oficial `turtlebot3_dqn_stage4.launch.py`. |
+| Nodos desarrollados por el estudiante | `coverage_mapper`, `observation_builder`, `dqn_explorer`, `safe_motion_controller` y `dqn_trainer`. |
+| Percepción efectiva | `/scan` identifica espacio libre/ocupado; `/odom` sitúa los rayos en una grilla. Ambos forman `/coverage_map` y la observación para DQN. |
+| Decisión autónoma | La política DQN selecciona la acción exploratoria a partir de LiDAR, parche local del mapa y ganancia de área desconocida. No es una secuencia temporizada. |
+| Actuación ROS 2 | Solo `safe_motion_controller` publica `geometry_msgs/Twist` en `/cmd_vel`; limita velocidad, frena ante riesgo y recupera bloqueos. |
+| Sin teleoperación | `mission.launch.py` carga un checkpoint obligatorio y no inicia nodos de teleoperación ni espera metas externas. |
+| Área monitoreada | `/coverage_metrics` publica el porcentaje de celdas conocidas y `best.metrics.json` guarda la cobertura media de evaluación del modelo. |
+| Seguridad y estabilidad | Watchdogs de LiDAR/odometría/acción, parada por datos inválidos, recuperación acotada, límites de pasos y de cobertura, y parada final con velocidad cero. |
+
+Una celda se considera monitoreada cuando pasa de desconocida a libre u
+ocupada por una medición LiDAR proyectada con odometría. El porcentaje es la
+fracción de celdas conocidas dentro de la grilla configurada de 20 m × 20 m;
+incluye celdas ocupadas, no equivale a área libre alcanzable y se informa para
+comparar ejecuciones bajo la misma configuración.
+
+### Protocolo de demostración
+
+1. Entrenar o seleccionar un checkpoint generado por el launcher de
+   entrenamiento.
+2. Lanzar únicamente `mission.launch.py` con ese checkpoint; no iniciar
+   `teleop`, ni publicar manualmente en `/cmd_vel`.
+3. Mostrar en RViz `/coverage_map`, `/scan` y `/exploration_status` mientras
+   el robot navega.
+4. Verificar `ros2 topic info /cmd_vel --verbose`: el único publicador debe
+   ser `/safe_motion_controller`.
+5. Al terminar por cobertura objetivo o `max_steps`, registrar
+   `/coverage_metrics`, la grilla final y el archivo `best.metrics.json`.
+
+El video de referencia define la especificación visual de la misión. Antes de
+la demostración final se debe contrastar con él la pose inicial, el tiempo
+disponible, los eventos visibles y el porcentaje de cobertura esperado. Esos
+valores se ajustan sin cambiar la arquitectura mediante `target_coverage`,
+`max_steps` y los archivos de configuración.
+
 ## Container and source dependencies
 
 From VS Code, use **Dev Containers: Rebuild and Reopen in Container** after
