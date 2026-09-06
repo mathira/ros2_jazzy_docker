@@ -91,3 +91,44 @@ def test_official_stage4_gui_is_gated_without_removing_server(monkeypatch):
     # World server, robot state publisher, and robot spawn stay included.
     assert sum(isinstance(action, IncludeLaunchDescription)
                for action in description.entities) == 3
+
+
+def test_training_robot_is_part_of_full_reset_world(monkeypatch):
+    """A late /create robot is deleted by Gazebo reset.all; include it at load."""
+    pytest.importorskip('launch_ros')
+    import xml.etree.ElementTree as ET
+    from ament_index_python.packages import get_package_share_directory, PackageNotFoundError
+    from launch import LaunchContext
+    from launch.actions import IncludeLaunchDescription
+    from launch_ros.actions import Node
+    from turtleboot3_autonomous_nav import stage4_launch
+
+    try:
+        share = Path(get_package_share_directory('turtlebot3_gazebo'))
+    except PackageNotFoundError:
+        pytest.skip('Official TurtleBot3 simulation sources are not installed')
+    monkeypatch.setenv('TURTLEBOT3_MODEL', 'burger')
+    context = LaunchContext()
+    context.launch_configurations['use_gui'] = 'false'
+    source_type = getattr(stage4_launch, 'TrainingStage4LaunchSource', None)
+    assert source_type is not None, 'Training needs a robot in the initial world'
+    description = source_type(str(share / 'launch' /
+        'turtlebot3_dqn_stage4.launch.py')).get_launch_description(context)
+    includes = [action for action in description.entities if isinstance(action, IncludeLaunchDescription)]
+    server = next(action for action in includes if 'gz_args' in dict(action.launch_arguments))
+    generated_path = Path(dict(server.launch_arguments)['gz_args'][-1])
+    assert generated_path != share / 'worlds' / 'turtlebot3_dqn_stage4.world'
+    generated = ET.parse(generated_path).getroot().find('world')
+    official = ET.parse(share / 'worlds' / 'turtlebot3_dqn_stage4.world').getroot().find('world')
+    robot = generated.findall('include')[-1]
+    assert robot.findtext('uri') == 'model://turtlebot3_burger'
+    assert robot.findtext('name') == 'burger'
+    assert robot.findtext('pose') == '0 0 0.01 0 0 0'
+    generated.remove(robot)
+    assert ET.tostring(generated).strip() == ET.tostring(official).strip()
+    spawn = next(action for action in includes if isinstance(
+        action.launch_description_source, stage4_launch.InitialRobotBridgeSource))
+    spawn_description = spawn.launch_description_source.get_launch_description(context)
+    executables = [action.node_executable for action in spawn_description.entities if isinstance(action, Node)]
+    assert 'create' not in executables
+    assert executables == ['parameter_bridge']

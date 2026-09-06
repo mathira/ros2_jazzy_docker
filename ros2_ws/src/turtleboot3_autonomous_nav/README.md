@@ -172,10 +172,18 @@ Mapping uses odometry without loop closure, and the policy is environment
 specific. Run a full training/evaluation campaign before making claims about
 coverage or collision performance.
 
-The tested Gazebo Sim 8.11.0 runtime stops Burger odometry after a full world
-reset even though scans continue. Training waits for fresh odometry, reports an
-error when its wall-clock deadline expires, and produces no checkpoint in that
-environment. Upstream's DiffDrive system
-documents rewind support as unfinished. Resolve that simulator behavior before
-expecting the training commands above to finish; changing the mapper freshness
-barrier or silently avoiding full reset would invalidate the episode contract.
+Training loads Burger into Gazebo's initial world state. Gazebo Sim 8.11.0
+removes a Burger spawned after startup when `reset.all` restores that initial
+state, which stops odometry even though an old laser sensor can keep publishing.
+The training launcher derives a temporary copy of the official stage4 world
+with the standard Burger model included at the origin and removes it on launch
+shutdown. The upstream world, moving obstacles, robot state publisher, and
+bridges are preserved; the later robot creation process is omitted.
+
+Full world reset, controller disable/enable acknowledgements, mapper and
+observation reset epochs, and fresh sensor requirements remain enforced. A
+Gazebo 8.11.0 smoke run completed two training and two evaluation episodes and
+saved a reloadable checkpoint. See the
+[reset investigation and verification](../../../docs/verification/2026-09-05-gazebo-training-reset.md)
+for the reproduction and partial-reset comparisons. This verifies the episode
+integration, not a learned policy's exploration quality.

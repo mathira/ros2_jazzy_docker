@@ -7,7 +7,7 @@ from launch_ros.actions import Node, SetRemap
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackagePrefix, FindPackageShare
 
-from turtleboot3_autonomous_nav.stage4_launch import Stage4LaunchSource
+from turtleboot3_autonomous_nav.stage4_launch import TrainingStage4LaunchSource
 
 
 def generate_launch_description():
@@ -25,7 +25,7 @@ def generate_launch_description():
             FindPackagePrefix('turtlebot3_gazebo'), 'lib', 'turtlebot3_gazebo'])),
         GroupAction(actions=[
             SetRemap(src='/cmd_vel', dst='/official_cmd_vel_stamped'),
-            IncludeLaunchDescription(Stage4LaunchSource(PathJoinSubstitution([
+            IncludeLaunchDescription(TrainingStage4LaunchSource(PathJoinSubstitution([
                 FindPackageShare('turtlebot3_gazebo'), 'launch', 'turtlebot3_dqn_stage4.launch.py'])),
                 launch_arguments={'use_sim_time': LaunchConfiguration('use_sim_time')}.items()),
         ]),
