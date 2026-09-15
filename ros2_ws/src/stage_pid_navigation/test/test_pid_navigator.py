@@ -365,6 +365,7 @@ def test_main_publishes_stop_before_normal_shutdown(monkeypatch):
         lambda **kwargs: events.append(("init", kwargs)),
     )
     monkeypatch.setattr(adapter.rclpy, "spin", lambda node: events.append("spin"))
+    monkeypatch.setattr(adapter.rclpy, "ok", lambda: True, raising=False)
     monkeypatch.setattr(adapter.rclpy, "shutdown", lambda: events.append("shutdown"))
 
     adapter.main(args=["--ros-args"])
@@ -375,4 +376,47 @@ def test_main_publishes_stop_before_normal_shutdown(monkeypatch):
         "stop",
         "destroy",
         "shutdown",
+    ]
+
+
+def test_main_skips_ros_operations_after_external_context_shutdown(monkeypatch):
+    events = []
+    context = {"valid": True}
+
+    class _Navigator:
+        def stop(self):
+            if not context["valid"]:
+                raise RuntimeError("publisher context is invalid")
+            events.append("stop")
+
+        def destroy_node(self):
+            events.append("destroy")
+
+    def spin(_node):
+        events.append("spin")
+        context["valid"] = False
+
+    def shutdown():
+        if not context["valid"]:
+            raise RuntimeError("context is already shut down")
+        events.append("shutdown")
+
+    monkeypatch.setattr(adapter, "PidNavigator", _Navigator)
+    monkeypatch.setattr(
+        adapter.rclpy,
+        "init",
+        lambda **kwargs: events.append(("init", kwargs)),
+    )
+    monkeypatch.setattr(adapter.rclpy, "spin", spin)
+    monkeypatch.setattr(
+        adapter.rclpy, "ok", lambda: context["valid"], raising=False
+    )
+    monkeypatch.setattr(adapter.rclpy, "shutdown", shutdown)
+
+    adapter.main(args=["--ros-args"])
+
+    assert events == [
+        ("init", {"args": ["--ros-args"], "signal_handler_options": "NO"}),
+        "spin",
+        "destroy",
     ]

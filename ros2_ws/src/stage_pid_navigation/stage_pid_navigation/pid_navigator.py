@@ -161,9 +161,11 @@ def main(args=None) -> None:
     except KeyboardInterrupt:
         pass
     finally:
-        navigator.stop()
+        if rclpy.ok():
+            navigator.stop()
         navigator.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":
