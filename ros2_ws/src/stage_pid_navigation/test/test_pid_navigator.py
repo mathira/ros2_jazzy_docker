@@ -53,6 +53,14 @@ class _Context:
         self.shutdown_callbacks.append(callback)
 
 
+class _Logger:
+    def __init__(self):
+        self.info_messages = []
+
+    def info(self, message):
+        self.info_messages.append(message)
+
+
 class _Node:
     def __init__(self, name):
         self.node_name = name
@@ -61,6 +69,7 @@ class _Node:
         self.publishers = []
         self.subscriptions = []
         self.timers = []
+        self.logger = _Logger()
 
     def declare_parameter(self, name, default_value):
         self.declared_parameters[name] = default_value
@@ -81,6 +90,9 @@ class _Node:
         self.timers.append(timer)
         return timer
 
+    def get_logger(self):
+        return self.logger
+
     def destroy_node(self):
         pass
 
@@ -89,6 +101,7 @@ def _load_adapter_with_fake_ros():
     module_names = (
         "rclpy",
         "rclpy.node",
+        "rclpy.signals",
         "geometry_msgs",
         "geometry_msgs.msg",
         "nav_msgs",
@@ -105,6 +118,9 @@ def _load_adapter_with_fake_ros():
     rclpy_node = ModuleType("rclpy.node")
     rclpy_node.Node = _Node
     rclpy.node = rclpy_node
+    rclpy_signals = ModuleType("rclpy.signals")
+    rclpy_signals.SignalHandlerOptions = SimpleNamespace(NO="NO")
+    rclpy.signals = rclpy_signals
 
     geometry_msgs = ModuleType("geometry_msgs")
     geometry_msgs_msg = ModuleType("geometry_msgs.msg")
@@ -124,6 +140,7 @@ def _load_adapter_with_fake_ros():
     replacements = {
         "rclpy": rclpy,
         "rclpy.node": rclpy_node,
+        "rclpy.signals": rclpy_signals,
         "geometry_msgs": geometry_msgs,
         "geometry_msgs.msg": geometry_msgs_msg,
         "nav_msgs": nav_msgs,
@@ -162,7 +179,10 @@ def make_navigator_for_test(*, require_scan=True):
     navigator._config = NavigationConfig()
     navigator._pid = PidController(kp=1.0, ki=0.0, kd=0.0, integral_limit=1.0)
     navigator._control_period = 0.1
+    navigator._last_control_time = 10.0
+    navigator._reached_goal = False
     navigator._cmd_vel_publisher = _Publisher("/cmd_vel")
+    navigator.get_logger = lambda: _Logger()
     return navigator
 
 
@@ -217,7 +237,7 @@ def test_constructor_declares_parameters_and_wires_ros_interfaces():
         "/base_scan",
     }
     assert navigator.timers[0][0] == pytest.approx(0.1)
-    assert navigator.context.shutdown_callbacks == [navigator._on_shutdown]
+    assert navigator.context.shutdown_callbacks == []
 
 
 def test_odometry_callback_converts_quaternion_to_planar_pose():
@@ -287,9 +307,72 @@ def test_timer_publishes_stop_after_goal_is_reached(monkeypatch):
     assert_zero_twist(last_published_twist(navigator))
 
 
-def test_shutdown_callback_publishes_stop():
-    navigator = make_navigator_for_test()
+def test_goal_arrival_is_latched_and_logged_once(monkeypatch):
+    navigator = make_navigator_for_test(require_scan=False)
+    navigator._pose = Pose2D(0.0, 0.0, 0.0)
+    logger = _Logger()
+    navigator.get_logger = lambda: logger
+    calls = []
 
-    navigator._on_shutdown()
+    def reached_goal(*args, **kwargs):
+        calls.append((args, kwargs))
+        return Command(0.0, 0.0, True, False)
 
-    assert_zero_twist(last_published_twist(navigator))
+    monkeypatch.setattr(adapter, "compute_command", reached_goal)
+
+    navigator._on_control_timer()
+    navigator._pose = Pose2D(10.0, 10.0, 0.0)
+    navigator._on_control_timer()
+
+    assert len(calls) == 1
+    assert len(navigator._cmd_vel_publisher.messages) == 2
+    assert_zero_twist(navigator._cmd_vel_publisher.messages[0])
+    assert_zero_twist(navigator._cmd_vel_publisher.messages[1])
+    assert logger.info_messages == ["Goal reached"]
+
+
+def test_timer_passes_elapsed_monotonic_time_to_controller(monkeypatch):
+    navigator = make_navigator_for_test(require_scan=False)
+    navigator._pose = Pose2D(0.0, 0.0, 0.0)
+    captured = {}
+    monkeypatch.setattr(adapter.time, "monotonic", lambda: 10.35)
+
+    def capture_command(*args, **kwargs):
+        captured.update(kwargs)
+        return Command(0.2, 0.0, False, False)
+
+    monkeypatch.setattr(adapter, "compute_command", capture_command)
+
+    navigator._on_control_timer()
+
+    assert captured["dt"] == pytest.approx(0.35)
+
+
+def test_main_publishes_stop_before_normal_shutdown(monkeypatch):
+    events = []
+
+    class _Navigator:
+        def stop(self):
+            events.append("stop")
+
+        def destroy_node(self):
+            events.append("destroy")
+
+    monkeypatch.setattr(adapter, "PidNavigator", _Navigator)
+    monkeypatch.setattr(
+        adapter.rclpy,
+        "init",
+        lambda **kwargs: events.append(("init", kwargs)),
+    )
+    monkeypatch.setattr(adapter.rclpy, "spin", lambda node: events.append("spin"))
+    monkeypatch.setattr(adapter.rclpy, "shutdown", lambda: events.append("shutdown"))
+
+    adapter.main(args=["--ros-args"])
+
+    assert events == [
+        ("init", {"args": ["--ros-args"], "signal_handler_options": "NO"}),
+        "spin",
+        "stop",
+        "destroy",
+        "shutdown",
+    ]

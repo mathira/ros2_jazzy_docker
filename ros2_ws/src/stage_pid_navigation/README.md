@@ -44,6 +44,16 @@ The default topics are `/odom`, `/base_scan`, and `/cmd_vel`. The node remains
 stopped until it has received odometry and, by default, a laser scan. It also
 publishes a zero velocity after reaching the goal and during shutdown.
 
+Goals are coordinates in `/odom`, not Stage's `world` frame. In the `cave`
+world the robot starts at world pose `(-7, -7, 45 deg)`, while its odometry
+starts at `(0, 0, 0)`. For example, the nearby world point `(-6, -5.5)` is
+approximately `(1.768, 0.354)` in that odometry frame:
+
+```bash
+ros2 launch stage_pid_navigation pid_navigation.launch.py \
+  goal_x:=1.7678 goal_y:=0.3536
+```
+
 ## Multi-robot topics
 
 For `robot_0` in a prefixed Stage world, select that robot's interfaces:

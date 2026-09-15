@@ -1,12 +1,14 @@
 """ROS 2 adapter for the pure Stage PID navigation controller."""
 
 import math
+import time
 from typing import Optional
 
 import rclpy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.signals import SignalHandlerOptions
 from sensor_msgs.msg import LaserScan
 
 from stage_pid_navigation.control import (
@@ -71,6 +73,8 @@ class PidNavigator(Node):
         )
         self._pose: Optional[Pose2D] = None
         self._scan: Optional[ScanSummary] = None
+        self._reached_goal = False
+        self._last_control_time = time.monotonic()
 
         self._cmd_vel_publisher = self.create_publisher(
             Twist, str(parameters["cmd_vel_topic"]), 10
@@ -84,7 +88,6 @@ class PidNavigator(Node):
         self._control_timer = self.create_timer(
             self._control_period, self._on_control_timer
         )
-        self.context.on_shutdown(self._on_shutdown)
 
     def _on_odom(self, message: Odometry) -> None:
         position = message.pose.pose.position
@@ -110,6 +113,14 @@ class PidNavigator(Node):
         )
 
     def _on_control_timer(self) -> None:
+        now = time.monotonic()
+        dt = now - self._last_control_time
+        self._last_control_time = now
+
+        if self._reached_goal:
+            self._publish_stop()
+            return
+
         if self._pose is None or (self._require_scan and self._scan is None):
             self._publish_stop()
             return
@@ -121,9 +132,11 @@ class PidNavigator(Node):
             scan=scan,
             config=self._config,
             pid=self._pid,
-            dt=self._control_period,
+            dt=dt,
         )
         if command.reached_goal:
+            self._reached_goal = True
+            self.get_logger().info("Goal reached")
             self._publish_stop()
             return
 
@@ -135,19 +148,22 @@ class PidNavigator(Node):
     def _publish_stop(self) -> None:
         self._cmd_vel_publisher.publish(Twist())
 
-    def _on_shutdown(self) -> None:
+    def stop(self) -> None:
+        """Publish a final stop while the ROS context is still valid."""
         self._publish_stop()
 
 
 def main(args=None) -> None:
-    rclpy.init(args=args)
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
     navigator = PidNavigator()
     try:
         rclpy.spin(navigator)
+    except KeyboardInterrupt:
+        pass
     finally:
-        if rclpy.ok():
-            rclpy.shutdown()
+        navigator.stop()
         navigator.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == "__main__":
