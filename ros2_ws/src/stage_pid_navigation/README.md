@@ -33,7 +33,8 @@ ros2 launch stage_ros2 stage.launch.py world:=cave
 ```
 
 In another sourced terminal, start navigation with a goal expressed in the
-odometry frame:
+odometry frame. Both `goal_x` and `goal_y` are required; the launch exits with
+an error before starting the node if either is omitted:
 
 ```bash
 ros2 launch stage_pid_navigation pid_navigation.launch.py \
@@ -75,23 +76,23 @@ All parameters are also launch arguments.
 
 | Parameter | Default | Description |
 | --- | ---: | --- |
-| `goal_x` | `0.0` | Goal x-coordinate in metres in the odometry frame. |
-| `goal_y` | `0.0` | Goal y-coordinate in metres in the odometry frame. |
+| `goal_x` | required | Goal x-coordinate in metres in the odometry frame. |
+| `goal_y` | required | Goal y-coordinate in metres in the odometry frame. |
 | `odom_topic` | `/odom` | `nav_msgs/msg/Odometry` input topic. |
 | `scan_topic` | `/base_scan` | `sensor_msgs/msg/LaserScan` input topic. |
 | `cmd_vel_topic` | `/cmd_vel` | `geometry_msgs/msg/Twist` output topic. |
 | `control_rate` | `10.0` | Fixed control-loop frequency in hertz. |
-| `kp` | `1.0` | Proportional gain for heading error. |
+| `kp` | `1.8` | Proportional gain for heading error. |
 | `ki` | `0.0` | Integral gain for heading error. |
-| `kd` | `0.0` | Derivative gain for heading error. |
+| `kd` | `0.15` | Derivative gain for heading error. |
 | `integral_limit` | `1.0` | Absolute anti-windup limit on accumulated heading error. |
-| `max_linear_speed` | `0.3` | Maximum forward speed in metres per second. |
-| `max_angular_speed` | `1.0` | Maximum turn rate in radians per second. |
-| `heading_stop_threshold` | `0.35` | Absolute heading error in radians above which forward motion stops. |
+| `max_linear_speed` | `0.35` | Maximum forward speed in metres per second. |
+| `max_angular_speed` | `1.2` | Maximum turn rate in radians per second. |
+| `heading_stop_threshold` | `0.7` | Absolute heading error in radians above which forward motion stops. |
 | `goal_tolerance` | `0.15` | Distance in metres at which the goal is considered reached. |
-| `slowdown_distance` | `0.75` | Front-obstacle distance in metres below which forward speed is reduced. |
-| `stop_distance` | `0.25` | Front-obstacle distance in metres below which forward motion stops and escape turning begins. |
-| `front_sector_angle` | `0.5` | Total angular width in radians of the forward LiDAR sector. |
+| `slowdown_distance` | `0.9` | Front-obstacle distance in metres below which forward speed is reduced. |
+| `stop_distance` | `0.35` | Front-obstacle distance in metres below which forward motion stops and escape turning begins. |
+| `front_sector_angle` | `0.7` | Total angular width in radians of the forward LiDAR sector. |
 | `require_scan` | `true` | Keep the robot stopped until a scan arrives; set to `false` only when operating without LiDAR protection. |
 
 ## Limitation

@@ -211,25 +211,25 @@ def assert_zero_twist(message):
 def test_constructor_declares_parameters_and_wires_ros_interfaces():
     navigator = adapter.PidNavigator()
 
-    assert set(navigator.declared_parameters) == {
-        "goal_x",
-        "goal_y",
-        "odom_topic",
-        "scan_topic",
-        "cmd_vel_topic",
-        "control_rate",
-        "kp",
-        "ki",
-        "kd",
-        "integral_limit",
-        "max_linear_speed",
-        "max_angular_speed",
-        "heading_stop_threshold",
-        "goal_tolerance",
-        "slowdown_distance",
-        "stop_distance",
-        "front_sector_angle",
-        "require_scan",
+    assert navigator.declared_parameters == {
+        "goal_x": 0.0,
+        "goal_y": 0.0,
+        "odom_topic": "/odom",
+        "scan_topic": "/base_scan",
+        "cmd_vel_topic": "/cmd_vel",
+        "control_rate": 10.0,
+        "kp": 1.8,
+        "ki": 0.0,
+        "kd": 0.15,
+        "integral_limit": 1.0,
+        "max_linear_speed": 0.35,
+        "max_angular_speed": 1.2,
+        "heading_stop_threshold": 0.7,
+        "goal_tolerance": 0.15,
+        "slowdown_distance": 0.9,
+        "stop_distance": 0.35,
+        "front_sector_angle": 0.7,
+        "require_scan": True,
     }
     assert navigator._cmd_vel_publisher.topic == "/cmd_vel"
     assert {subscription[1] for subscription in navigator.subscriptions} == {

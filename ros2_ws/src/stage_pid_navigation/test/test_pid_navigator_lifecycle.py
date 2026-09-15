@@ -19,7 +19,10 @@ def _is_zero(message):
     return message.linear.x == 0.0 and message.angular.z == 0.0
 
 
-def test_sigint_publishes_final_stop_before_ros_context_shutdown():
+@pytest.mark.parametrize(
+    "shutdown_signal", [signal.SIGINT, signal.SIGTERM], ids=["sigint", "sigterm"]
+)
+def test_signal_publishes_final_stop_before_ros_context_shutdown(shutdown_signal):
     suffix = uuid.uuid4().hex
     command_topic = f"/pid_lifecycle_{suffix}/cmd_vel"
     odom_topic = f"/pid_lifecycle_{suffix}/odom"
@@ -62,7 +65,7 @@ def test_sigint_publishes_final_stop_before_ros_context_shutdown():
             rclpy.spin_once(observer, timeout_sec=0.05)
 
         assert any(not _is_zero(message) for message in messages)
-        process.send_signal(signal.SIGINT)
+        process.send_signal(shutdown_signal)
 
         deadline = time.monotonic() + 10.0
         while time.monotonic() < deadline and process.poll() is None:

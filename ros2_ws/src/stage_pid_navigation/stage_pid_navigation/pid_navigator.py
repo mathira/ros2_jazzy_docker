@@ -1,6 +1,7 @@
 """ROS 2 adapter for the pure Stage PID navigation controller."""
 
 import math
+import signal
 import time
 from typing import Optional
 
@@ -28,19 +29,27 @@ PARAMETER_DEFAULTS = {
     "scan_topic": "/base_scan",
     "cmd_vel_topic": "/cmd_vel",
     "control_rate": 10.0,
-    "kp": 1.0,
+    "kp": 1.8,
     "ki": 0.0,
-    "kd": 0.0,
+    "kd": 0.15,
     "integral_limit": 1.0,
-    "max_linear_speed": 0.3,
-    "max_angular_speed": 1.0,
-    "heading_stop_threshold": 0.35,
+    "max_linear_speed": 0.35,
+    "max_angular_speed": 1.2,
+    "heading_stop_threshold": 0.7,
     "goal_tolerance": 0.15,
-    "slowdown_distance": 0.75,
-    "stop_distance": 0.25,
-    "front_sector_angle": 0.5,
+    "slowdown_distance": 0.9,
+    "stop_distance": 0.35,
+    "front_sector_angle": 0.7,
     "require_scan": True,
 }
+
+
+class _ShutdownRequested(Exception):
+    pass
+
+
+def _request_shutdown(_signum, _frame) -> None:
+    raise _ShutdownRequested
 
 
 class PidNavigator(Node):
@@ -156,11 +165,14 @@ class PidNavigator(Node):
 def main(args=None) -> None:
     rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
     navigator = PidNavigator()
+    previous_sigterm_handler = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGTERM, _request_shutdown)
     try:
         rclpy.spin(navigator)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, _ShutdownRequested):
         pass
     finally:
+        signal.signal(signal.SIGTERM, previous_sigterm_handler)
         if rclpy.ok():
             navigator.stop()
         navigator.destroy_node()

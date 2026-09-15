@@ -26,13 +26,13 @@ class ScanSummary:
 
 @dataclass(frozen=True)
 class NavigationConfig:
-    max_linear_speed: float = 0.3
-    max_angular_speed: float = 1.0
-    heading_stop_threshold: float = 0.35
+    max_linear_speed: float = 0.35
+    max_angular_speed: float = 1.2
+    heading_stop_threshold: float = 0.7
     goal_tolerance: float = 0.15
-    slowdown_distance: float = 0.75
-    stop_distance: float = 0.25
-    front_sector_angle: float = 0.5
+    slowdown_distance: float = 0.9
+    stop_distance: float = 0.35
+    front_sector_angle: float = 0.7
 
 
 @dataclass(frozen=True)
