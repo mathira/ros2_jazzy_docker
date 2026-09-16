@@ -29,6 +29,12 @@ las teclas de movimiento desde el navegador.
 Las nuevas ventanas de terminal se abren con Bash y el usuario `ros`; no es
 necesario usar `sudo`, `su` ni ingresar una contraseña.
 
+Para copiar texto desde la máquina al terminal web, copiá normalmente en tu
+Mac, abrí el botón **Clipboard** de la barra de noVNC y pegá allí con `Cmd+V`.
+Luego, dentro de Xfce, usá `Ctrl+Shift+V` (en una terminal X11, `Ctrl+V` no es
+el atajo de pegar). El servidor VNC tiene habilitada explícitamente la
+sincronización del portapapeles.
+
 Para detenerlo:
 
 ```bash

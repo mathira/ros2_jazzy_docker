@@ -17,6 +17,10 @@ The web console is available inside the project container. Open
 opened **ROS 2 Jazzy - project terminal**. It starts in `/ros2_ws` with ROS 2
 loaded. A host terminal remains available as an alternative:
 
+To paste text from the host into the web terminal, use the noVNC **Clipboard**
+button, paste with `Cmd+V` there, and then paste into Xfce with
+`Ctrl+Shift+V`.
+
 ```bash
 docker compose -f setup/docker-compose.yml exec ros2 bash
 ```
