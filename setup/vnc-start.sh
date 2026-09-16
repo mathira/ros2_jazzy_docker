@@ -15,7 +15,7 @@ chmod 600 /home/ros/.vnc/passwd
 
 pgrep -f xfwm4 >/dev/null 2>&1 || xfwm4 &
 pgrep -f xfce4-panel >/dev/null 2>&1 || xfce4-panel &
-pgrep -f x11vnc >/dev/null 2>&1 || x11vnc -display :1 -forever -shared -rfbport 5901 -rfbauth /home/ros/.vnc/passwd -o /tmp/x11vnc.log &
+pgrep -x x11vnc >/dev/null 2>&1 || x11vnc -display :1 -forever -shared -rfbport 5901 -rfbauth /home/ros/.vnc/passwd -o /tmp/x11vnc.log &
 pgrep -f websockify >/dev/null 2>&1 || websockify --web=/usr/share/novnc/ 6080 localhost:5901 >/tmp/novnc.log 2>&1 &
 
 # Open a real TTY for keyboard-driven ROS nodes inside the noVNC desktop.
