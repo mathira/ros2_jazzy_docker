@@ -1,7 +1,0 @@
-Metadata-Version: 2.1
-Name: turtleboot3-autonomous-nav
-Version: 0.0.1
-Summary: Autonomous TurtleBot3 coverage mapping and DQN exploration.
-Maintainer: turtleboot3_autonomous_nav maintainers
-Maintainer-email: maintainer@example.com
-License: Apache-2.0

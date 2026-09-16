@@ -642,8 +642,8 @@ adjusted without changing the architecture through `target_coverage`,
 
 ## Container and source dependencies
 
-From VS Code, use **Dev Containers: Rebuild and Reopen in Container** after
-changing `.devcontainer/Dockerfile`. The container needs ROS 2 Jazzy, Gazebo
+Run `./setup/setup.sh` from the repository root after changing
+`setup/Dockerfile`. The container needs ROS 2 Jazzy, Gazebo
 Harmonic, `ros_gz`, RViz, NumPy, and pytest. The network must be available on the
 first launch so Gazebo can cache the upstream ground-plane model.
 

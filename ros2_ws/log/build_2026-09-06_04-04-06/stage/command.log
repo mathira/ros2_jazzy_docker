@@ -1,6 +1,0 @@
-Invoking command in '/workspaces/ros2_jazzy_docker/ros2_ws/build/stage': /usr/bin/cmake /workspaces/ros2_jazzy_docker/ros2_ws/src/Stage -DCATKIN_INSTALL_INTO_PREFIX_ROOT=0 -DCMAKE_INSTALL_PREFIX=/workspaces/ros2_jazzy_docker/ros2_ws/install/stage
-Invoked command in '/workspaces/ros2_jazzy_docker/ros2_ws/build/stage' returned '0': /usr/bin/cmake /workspaces/ros2_jazzy_docker/ros2_ws/src/Stage -DCATKIN_INSTALL_INTO_PREFIX_ROOT=0 -DCMAKE_INSTALL_PREFIX=/workspaces/ros2_jazzy_docker/ros2_ws/install/stage
-Invoking command in '/workspaces/ros2_jazzy_docker/ros2_ws/build/stage': /usr/bin/cmake --build /workspaces/ros2_jazzy_docker/ros2_ws/build/stage -- -j12 -l12
-Invoked command in '/workspaces/ros2_jazzy_docker/ros2_ws/build/stage' returned '0': /usr/bin/cmake --build /workspaces/ros2_jazzy_docker/ros2_ws/build/stage -- -j12 -l12
-Invoking command in '/workspaces/ros2_jazzy_docker/ros2_ws/build/stage': /usr/bin/cmake --install /workspaces/ros2_jazzy_docker/ros2_ws/build/stage
-Invoked command in '/workspaces/ros2_jazzy_docker/ros2_ws/build/stage' returned '0': /usr/bin/cmake --install /workspaces/ros2_jazzy_docker/ros2_ws/build/stage

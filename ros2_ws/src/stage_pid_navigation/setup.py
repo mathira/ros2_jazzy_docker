@@ -5,12 +5,14 @@ from setuptools import find_packages, setup
 
 
 package_name = "stage_pid_navigation"
+package_root = "stage_pid_navigation"
 
 
 setup(
     name=package_name,
     version="0.0.1",
-    packages=find_packages(exclude=["test"]),
+    packages=find_packages(where=package_root, exclude=["test"]),
+    package_dir={"": package_root},
     data_files=[
         (
             "share/ament_index/resource_index/packages",
@@ -19,7 +21,7 @@ setup(
         ("share/" + package_name, ["package.xml"]),
         (
             os.path.join("share", package_name, "launch"),
-            glob(os.path.join("stage_pid_navigation", "launch", "*.launch.py")),
+            glob(os.path.join(package_root, "stage_pid_navigation", "launch", "*.launch.py")),
         ),
     ],
     install_requires=["setuptools"],

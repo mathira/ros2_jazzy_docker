@@ -1,0 +1,33 @@
+services:
+  ros2:
+    build:
+      context: ..
+      dockerfile: setup/Dockerfile
+    image: ros2-jazzy-project:local
+    container_name: ros2-jazzy-project
+    privileged: true
+    shm_size: 1g
+    working_dir: /ros2_ws
+    volumes:
+      - ../ros2_ws/src:/ros2_ws/src
+      - ../ros2_ws/models:/ros2_ws/models
+      - ../ros2_ws/stage_nav.repos:/ros2_ws/stage_nav.repos:ro
+      - ros2_build:/ros2_ws/build
+      - ros2_install:/ros2_ws/install
+      - ros2_log:/ros2_ws/log
+      - ros2_codex_home:/home/ros/.codex
+    environment:
+      DISPLAY: :1
+      CODEX_HOME: /home/ros/.codex
+      SCREEN_WIDTH: 1440
+      SCREEN_HEIGHT: 900
+    ports:
+      - "6080:6080"
+      - "5901:5901"
+    command: ["sleep", "infinity"]
+
+volumes:
+  ros2_build:
+  ros2_install:
+  ros2_log:
+  ros2_codex_home:

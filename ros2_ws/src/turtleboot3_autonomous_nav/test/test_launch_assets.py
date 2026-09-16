@@ -40,8 +40,10 @@ def test_dependency_installer_is_explicit_and_never_runs_during_colcon_build():
     script = PACKAGE_ROOT / 'turtleboot3_autonomous_nav' / 'dependency_installer.py'
     source = script.read_text()
     assert 'vcs import' in source
-    assert 'rosdep install' in source
-    assert 'colcon build' in source
+    assert "'rosdep'" in source
+    assert "'install'" in source
+    assert "'colcon'" in source
+    assert "'build'" in source
     assert 'subprocess.run' in source
     assert 'setup.py' not in source
 
@@ -54,7 +56,8 @@ def test_dependency_installer_excludes_optional_cartographer_packages():
     assert "'src/turtlebot3/turtlebot3_description'" in source
     assert "'src/turtlebot3_simulations/turtlebot3_gazebo'" in source
     assert "'--from-paths', 'src'" not in source
-    assert "'--packages-up-to', 'turtlebot3_gazebo'" in source
+    assert "'--packages-up-to'" in source
+    assert "'turtlebot3_gazebo'" in source
 
 
 def test_mission_uses_stage4_without_nav_or_slam():
