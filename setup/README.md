@@ -20,6 +20,8 @@ docker compose -f setup/docker-compose.yml exec ros2 setup/build.sh
 
 El contenedor expone RViz/Gazebo mediante noVNC en
 <http://localhost:6080/vnc.html>. La contraseña inicial es `ros`.
+La pantalla virtual usa 1440×900 para ajustarse mejor al navegador en macOS;
+se puede cambiar con `SCREEN_WIDTH` y `SCREEN_HEIGHT` en Compose.
 
 Al abrir noVNC se inicia automáticamente una terminal Xfce dentro del
 contenedor, con ROS 2 y `/ros2_ws/install` cargados. Esa terminal tiene TTY

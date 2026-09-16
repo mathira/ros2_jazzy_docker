@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -e
 export DISPLAY=:1
+SCREEN_WIDTH="${SCREEN_WIDTH:-1440}"
+SCREEN_HEIGHT="${SCREEN_HEIGHT:-900}"
+SCREEN_SIZE="${SCREEN_WIDTH}x${SCREEN_HEIGHT}x24"
 
 if ! pgrep -f 'Xvfb :1' >/dev/null 2>&1; then
-  Xvfb :1 -screen 0 1920x1080x24 -ac &
+  Xvfb :1 -screen 0 "${SCREEN_SIZE}" -ac &
   sleep 2
 fi
 

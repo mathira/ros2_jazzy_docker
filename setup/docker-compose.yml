@@ -19,6 +19,8 @@ services:
     environment:
       DISPLAY: :1
       CODEX_HOME: /home/ros/.codex
+      SCREEN_WIDTH: 1440
+      SCREEN_HEIGHT: 900
     ports:
       - "6080:6080"
       - "5901:5901"
