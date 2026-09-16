@@ -2,6 +2,9 @@
 # One-time setup after the container is created.
 set -e
 
+# Named volumes created by older images can be owned by root.
+sudo chown "$(id -u):$(id -g)" /ros2_ws/build /ros2_ws/install /ros2_ws/log
+
 echo "Setting up VNC password..."
 mkdir -p /home/ros/.vnc
 if [ ! -f /home/ros/.vnc/passwd ]; then
@@ -15,9 +18,12 @@ sudo rosdep init 2>/dev/null || true
 rosdep update
 
 echo "Sourcing ROS environment..."
-echo "source /opt/ros/jazzy/setup.bash" >> /home/ros/.bashrc
-echo "source /ros2_ws/install/setup.bash 2>/dev/null || true" >> /home/ros/.bashrc
-echo "export DISPLAY=:1" >> /home/ros/.bashrc
+for line in \
+    'source /opt/ros/jazzy/setup.bash' \
+    'source /ros2_ws/install/setup.bash 2>/dev/null || true' \
+    'export DISPLAY=:1'; do
+    grep -qxF "$line" /home/ros/.bashrc || echo "$line" >> /home/ros/.bashrc
+done
 
 echo "Creating default colcon profile..."
 mkdir -p /ros2_ws/src

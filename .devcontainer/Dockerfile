@@ -13,7 +13,7 @@ ARG USER_GID=${USER_UID}
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     # Build & dev tools
     build-essential cmake git wget curl vim nano htop ca-certificates gnupg \
-    python3-pip python3-venv python3-argcomplete python3-pytest python3-torch \
+    python3-pip python3-venv python3-argcomplete python3-pytest \
     python3-vcstool python3-rospkg python3-colcon-common-extensions \
     python3-rosdep \
     # GUI / simulation libs
@@ -25,6 +25,12 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     # misc
     sudo bash-completion less \
     && rm -rf /var/lib/apt/lists/*
+
+# Ubuntu Noble does not provide python3-torch for arm64. Use the official
+# CPU wheels on both Apple Silicon and x86_64, without CUDA dependencies.
+ARG TORCH_VERSION=2.10.0
+RUN python3 -m pip install --no-cache-dir --break-system-packages \
+    --index-url https://download.pytorch.org/whl/cpu "torch==${TORCH_VERSION}"
 
 # Add OSRF (Gazebo) apt repository - required for Gazebo Harmonic on Noble
 RUN wget -q https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
@@ -56,7 +62,7 @@ COPY .devcontainer/scripts /home/${USERNAME}/.devcontainer/scripts
 RUN chmod +x /home/${USERNAME}/.devcontainer/scripts/*.sh
 
 # Create workspace
-RUN mkdir -p /ros2_ws/src /home/${USERNAME}/.codex \
+RUN mkdir -p /ros2_ws/src /ros2_ws/build /ros2_ws/install /ros2_ws/log /home/${USERNAME}/.codex \
     && chown -R ${USERNAME}:${USERNAME} /ros2_ws /home/${USERNAME}/.codex
 
 # Entrypoint: source ROS env and start services, then exec the real CMD.

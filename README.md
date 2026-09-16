@@ -36,6 +36,14 @@ ros2_jazzy_docker/
 
 ---
 
+### Apple Silicon (M1/M2/M3/M4)
+
+Docker Desktop builds this image natively as `linux/arm64`; no architecture
+emulation is required. PyTorch is installed from the official CPU wheel index
+because Ubuntu Noble's ARM64 repositories do not provide `python3-torch`.
+If an older build fails with `Package 'python3-torch' has no installation candidate`,
+use this Dockerfile and run **Dev Containers: Rebuild and Reopen in Container**.
+
 ## Option A — VS Code Dev Containers (recommended)
 
 1. Open this folder in VS Code.
@@ -76,7 +84,7 @@ key in the repository.
 
 ```bash
 # 1. Build the image (only needed the first time / after changes)
-docker build -t ros2-jazzy-dev .devcontainer
+docker build -t ros2-jazzy-dev -f .devcontainer/Dockerfile .
 
 # 2. Run the container (mounts ./ros2_ws/src -> /ros2_ws/src)
 docker run -dit --name ros2-jazzy \
@@ -207,7 +215,7 @@ ros2 run turtle_py teleop_turtle
   ```
 - To rebuild after changing the Dockerfile:
   ```bash
-  docker build -t ros2-jazzy-dev .devcontainer
+  docker build -t ros2-jazzy-dev -f .devcontainer/Dockerfile .
   docker rm -f ros2-jazzy && <re-run the docker run command above>
   ```
 - `--privileged` is used so Gazebo can access GPU/device nodes; drop it if you don't need it.
