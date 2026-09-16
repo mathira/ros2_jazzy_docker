@@ -1,6 +1,7 @@
 """Exercise reset callbacks with real ROS messages and controlled delivery order."""
 
 import json
+import tempfile
 import time
 from types import SimpleNamespace
 
@@ -16,6 +17,7 @@ from std_srvs.srv import SetBool, Trigger
 
 from turtleboot3_autonomous_nav.coverage_mapper import CoverageMapper
 from turtleboot3_autonomous_nav import dqn_trainer
+from turtleboot3_autonomous_nav.observation import OBSERVATION_SIZE
 
 
 def delivery(timestamp):
@@ -99,8 +101,9 @@ def test_trainer_delayed_messages_cannot_start_or_contaminate_episode(monkeypatc
         assert not trainer._running_episode
         trainer._on_scan(fresh_scan, delivery(1_002))
         assert trainer._running_episode
-        observation = Float32MultiArray(data=[0.0] * 86)
-        observation.layout.dim = [MultiArrayDimension(label='episode:1', size=86, stride=86)]
+        observation = Float32MultiArray(data=[0.0] * OBSERVATION_SIZE)
+        observation.layout.dim = [MultiArrayDimension(
+            label='episode:1', size=OBSERVATION_SIZE, stride=OBSERVATION_SIZE)]
         trainer._on_observation(observation, delivery(999))
         trainer._on_coverage(Float32(data=0.9), delivery(999))
         trainer._on_intervention(Bool(data=True), delivery(999))
@@ -117,7 +120,8 @@ def test_trainer_delayed_messages_cannot_start_or_contaminate_episode(monkeypatc
         assert len(trainer._replay) == 0
 
     monkeypatch.setattr(rclpy, "spin", exercise)
-    dqn_trainer.main([])
+    dqn_trainer.main(['--ros-args', '-p', f'model_directory:={tempfile.mkdtemp()}',
+                     '-p', 'resume:=false'])
 
 
 def test_dds_publication_time_survives_queued_delivery_and_sim_clock_rewind():

@@ -1,0 +1,7 @@
+/workspaces/ros2_jazzy_docker/ros2_ws/build/turtlebot3_msgs/rosidl_adapter/turtlebot3_msgs:msg/SensorState.idl
+/workspaces/ros2_jazzy_docker/ros2_ws/build/turtlebot3_msgs/rosidl_adapter/turtlebot3_msgs:msg/Sound.idl
+/workspaces/ros2_jazzy_docker/ros2_ws/build/turtlebot3_msgs/rosidl_adapter/turtlebot3_msgs:msg/VersionInfo.idl
+/workspaces/ros2_jazzy_docker/ros2_ws/build/turtlebot3_msgs/rosidl_adapter/turtlebot3_msgs:srv/Sound.idl
+/workspaces/ros2_jazzy_docker/ros2_ws/build/turtlebot3_msgs/rosidl_adapter/turtlebot3_msgs:srv/Dqn.idl
+/workspaces/ros2_jazzy_docker/ros2_ws/build/turtlebot3_msgs/rosidl_adapter/turtlebot3_msgs:srv/Goal.idl
+/workspaces/ros2_jazzy_docker/ros2_ws/build/turtlebot3_msgs/rosidl_adapter/turtlebot3_msgs:action/Patrol.idl

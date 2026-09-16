@@ -1,0 +1,41 @@
+{
+  "config": {
+    "action_count": 5,
+    "batch_size": 32,
+    "epsilon_min": 0.05,
+    "epsilon_start": 1.0,
+    "evaluation_episodes": 3,
+    "evaluation_interval": 10,
+    "frontier_approach_reward": 0.05,
+    "frontier_bonus": 0.5,
+    "frontier_threshold": 0.5,
+    "gamma": 0.99,
+    "gradient_clip": 10.0,
+    "huber_delta": 1.0,
+    "intervention_penalty": 0.1,
+    "learning_rate": 0.005,
+    "map_cell_count": 9409,
+    "max_episode_seconds": 120.0,
+    "max_episodes": 170,
+    "max_steps": 5000,
+    "new_cell_reward": 0.01,
+    "no_progress_penalty": 0.1,
+    "observation_size": 90,
+    "progress_displacement": 0.01,
+    "recovery_penalty": 0.5,
+    "replay_capacity": 100000,
+    "reset_retry_limit": 3,
+    "reset_timeout_seconds": 30.0,
+    "reward_clip": 1.0,
+    "stall_seconds": 25.0,
+    "step_penalty": 0.01,
+    "target_coverage": 0.98,
+    "target_sync_steps": 1000
+  },
+  "metrics": {
+    "episode": 156,
+    "evaluation_episodes": 3,
+    "global_steps": 92995,
+    "mean_coverage": 0.7459750572840372
+  }
+}

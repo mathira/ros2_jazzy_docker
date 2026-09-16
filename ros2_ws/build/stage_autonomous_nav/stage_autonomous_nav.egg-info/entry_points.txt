@@ -1,0 +1,2 @@
+[console_scripts]
+ground_truth_localizer = stage_autonomous_nav.ground_truth_localizer:main

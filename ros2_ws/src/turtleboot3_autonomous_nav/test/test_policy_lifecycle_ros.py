@@ -1,6 +1,7 @@
 """Exercise policy adapters with real ROS messages and controlled service transport."""
 
 import json
+import tempfile
 from dataclasses import replace
 import time
 from types import SimpleNamespace
@@ -18,6 +19,8 @@ from std_srvs.srv import SetBool, Trigger
 
 from turtleboot3_autonomous_nav import dqn_explorer, dqn_trainer
 from turtleboot3_autonomous_nav.dqn import DQNPolicy, save_checkpoint
+from turtleboot3_autonomous_nav.control import POLICY_ACTION_COUNT
+from turtleboot3_autonomous_nav.observation import OBSERVATION_SIZE
 
 
 class ServiceTransport:
@@ -60,8 +63,9 @@ def deliver(stamp=2_000):
 
 
 def observation(epoch=1):
-    message = Float32MultiArray(data=[0.0] * 86)
-    message.layout.dim = [MultiArrayDimension(label=f'episode:{epoch}', size=86, stride=86)]
+    message = Float32MultiArray(data=[0.0] * OBSERVATION_SIZE)
+    message.layout.dim = [MultiArrayDimension(
+        label=f'episode:{epoch}', size=OBSERVATION_SIZE, stride=OBSERVATION_SIZE)]
     return message
 
 
@@ -93,7 +97,8 @@ def test_trainer_stops_before_reset_and_requires_current_observation_epoch(monke
         assert trainer._previous_state is not None
 
     monkeypatch.setattr(rclpy, 'spin', exercise)
-    dqn_trainer.main([])
+    dqn_trainer.main(['--ros-args', '-p', f'model_directory:={tempfile.mkdtemp()}',
+                     '-p', 'resume:=false'])
 
 
 @pytest.mark.parametrize('phase', ['controller_service', 'disable_reply', 'world_reply', 'mapper_reply',
@@ -124,8 +129,11 @@ def test_trainer_reset_phases_have_wall_clock_deadlines(monkeypatch, transport, 
         if phase == 'observation':
             trainer._on_odometry(Odometry(), deliver())
             trainer._on_scan(LaserScan(), deliver())
-        wall_time[0] += 11_000_000_000
-        trainer._poll_reset()
+        # A reset RPC is retried before it is fatal, so exhaust the budget;
+        # the sensor phases have no retries and fail on the first deadline.
+        for _ in range(trainer._config.reset_retry_limit + 1):
+            wall_time[0] += 11_000_000_000
+            trainer._poll_reset()
         assert trainer._failed
         assert not trainer._running_episode
         assert trainer._previous_state is None
@@ -138,7 +146,8 @@ def test_trainer_reset_phases_have_wall_clock_deadlines(monkeypatch, transport, 
 
     monkeypatch.setattr(rclpy, 'spin', exercise)
     with pytest.raises(RuntimeError, match='Training aborted'):
-        dqn_trainer.main([])
+        dqn_trainer.main(['--ros-args', '-p', f'model_directory:={tempfile.mkdtemp()}',
+                     '-p', 'resume:=false'])
 
 
 def test_trainer_episode_limit_requests_acknowledged_stop(monkeypatch, transport):
@@ -156,7 +165,8 @@ def test_trainer_episode_limit_requests_acknowledged_stop(monkeypatch, transport
         assert len(transport['/world/dqn/control'].calls) == 1
 
     monkeypatch.setattr(rclpy, 'spin', exercise)
-    dqn_trainer.main([])
+    dqn_trainer.main(['--ros-args', '-p', f'model_directory:={tempfile.mkdtemp()}',
+                     '-p', 'resume:=false'])
 
 
 def test_trainer_reset_failure_exits_unsuccessfully_after_stop_ack(monkeypatch, transport):
@@ -173,7 +183,8 @@ def test_trainer_reset_failure_exits_unsuccessfully_after_stop_ack(monkeypatch, 
 
     monkeypatch.setattr(rclpy, 'spin', exercise)
     with pytest.raises(RuntimeError, match='Training aborted'):
-        dqn_trainer.main([])
+        dqn_trainer.main(['--ros-args', '-p', f'model_directory:={tempfile.mkdtemp()}',
+                     '-p', 'resume:=false'])
 
 
 @pytest.mark.parametrize('model_path', ['', '   ', '/missing/policy.pt'])
@@ -192,7 +203,9 @@ def test_mission_termination_disables_controller_and_suppresses_later_actions(
     monkeypatch, transport, tmp_path, reason
 ):
     model = tmp_path / 'policy.pt'
-    save_checkpoint(model, DQNPolicy(86, 6, seed=1), {}, {})
+    save_checkpoint(
+        model, DQNPolicy(OBSERVATION_SIZE, POLICY_ACTION_COUNT, seed=1), {}, {}
+    )
 
     def exercise(explorer):
         from turtleboot3_autonomous_nav.safe_motion_controller import SafeMotionController

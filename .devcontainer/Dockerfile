@@ -12,12 +12,12 @@ ARG USER_GID=${USER_UID}
 # Install system dependencies, ROS 2 dev tools, and desktop/GUI packages
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     # Build & dev tools
-    build-essential cmake git wget curl vim nano htop \
+    build-essential cmake git wget curl vim nano htop ca-certificates gnupg \
     python3-pip python3-venv python3-argcomplete python3-pytest python3-torch \
     python3-vcstool python3-rospkg python3-colcon-common-extensions \
     python3-rosdep \
     # GUI / simulation libs
-    libgl1 libxcomposite1 libxdamage1 \
+    libgl1 libfltk1.3-dev libxcomposite1 libxdamage1 \
     # Lightweight desktop for VNC
     xfwm4 xfce4-panel xfce4-terminal dbus-x11 \
     # VNC server (x11vnc), virtual X display (Xvfb) and noVNC web client
@@ -52,20 +52,23 @@ RUN userdel ubuntu 2>/dev/null || true \
     && chmod 0440 /etc/sudoers.d/${USERNAME}
 
 # Copy helper scripts
-COPY scripts /home/${USERNAME}/.devcontainer/scripts
+COPY .devcontainer/scripts /home/${USERNAME}/.devcontainer/scripts
 RUN chmod +x /home/${USERNAME}/.devcontainer/scripts/*.sh
 
 # Create workspace
-RUN mkdir -p /ros2_ws/src
+RUN mkdir -p /ros2_ws/src /home/${USERNAME}/.codex \
+    && chown -R ${USERNAME}:${USERNAME} /ros2_ws /home/${USERNAME}/.codex
 
-# Entrypoint: source ROS env and start services, then exec the real CMD
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+# Entrypoint: source ROS env and start services, then exec the real CMD.
+# Keep a foreground process alive: a non-interactive `bash` exits immediately,
+# which otherwise makes a dev container stop right after startup.
+COPY .devcontainer/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 USER ${USERNAME}
 WORKDIR /ros2_ws
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["/bin/bash"]
+CMD ["sleep", "infinity"]
 
 LABEL org.opencontainers.image.description="ROS 2 Jazzy with Gazebo and browser VNC (noVNC) access"

@@ -1,0 +1,55 @@
+running egg_info
+creating ../../build/stage_autonomous_nav/stage_autonomous_nav.egg-info
+writing ../../build/stage_autonomous_nav/stage_autonomous_nav.egg-info/PKG-INFO
+writing dependency_links to ../../build/stage_autonomous_nav/stage_autonomous_nav.egg-info/dependency_links.txt
+writing entry points to ../../build/stage_autonomous_nav/stage_autonomous_nav.egg-info/entry_points.txt
+writing requirements to ../../build/stage_autonomous_nav/stage_autonomous_nav.egg-info/requires.txt
+writing top-level names to ../../build/stage_autonomous_nav/stage_autonomous_nav.egg-info/top_level.txt
+writing manifest file '../../build/stage_autonomous_nav/stage_autonomous_nav.egg-info/SOURCES.txt'
+reading manifest file '../../build/stage_autonomous_nav/stage_autonomous_nav.egg-info/SOURCES.txt'
+writing manifest file '../../build/stage_autonomous_nav/stage_autonomous_nav.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build
+creating /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib
+creating /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav
+copying stage_autonomous_nav/__init__.py -> /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav
+copying stage_autonomous_nav/transform_math.py -> /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav
+copying stage_autonomous_nav/ground_truth_localizer.py -> /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav
+creating /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav/launch
+copying stage_autonomous_nav/launch/cave_navigation.py -> /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav/launch
+copying stage_autonomous_nav/launch/__init__.py -> /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav/launch
+running install
+running install_lib
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav/launch
+copying /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav/launch/cave_navigation.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav/launch
+copying /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav/launch/__init__.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav/launch
+copying /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav/__init__.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav
+copying /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav/transform_math.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav
+copying /workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/build/lib/stage_autonomous_nav/ground_truth_localizer.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav
+byte-compiling /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav/launch/cave_navigation.py to cave_navigation.cpython-312.pyc
+byte-compiling /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav/launch/__init__.py to __init__.cpython-312.pyc
+byte-compiling /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav/__init__.py to __init__.cpython-312.pyc
+byte-compiling /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav/transform_math.py to transform_math.cpython-312.pyc
+byte-compiling /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav/ground_truth_localizer.py to ground_truth_localizer.cpython-312.pyc
+running install_data
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/ament_index
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/ament_index/resource_index
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/ament_index/resource_index/packages
+copying resource/stage_autonomous_nav -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/ament_index/resource_index/packages
+copying package.xml -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/stage_autonomous_nav
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/stage_autonomous_nav/launch
+copying launch/cave_navigation.launch.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/stage_autonomous_nav/launch
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/stage_autonomous_nav/config
+copying config/nav2_cave.yaml -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/stage_autonomous_nav/config
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/stage_autonomous_nav/maps
+copying maps/cave.pgm -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/stage_autonomous_nav/maps
+copying maps/cave.yaml -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/stage_autonomous_nav/maps
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/stage_autonomous_nav/rviz
+copying rviz/cave_navigation.rviz -> /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/share/stage_autonomous_nav/rviz
+running install_egg_info
+Copying ../../build/stage_autonomous_nav/stage_autonomous_nav.egg-info to /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/python3.12/site-packages/stage_autonomous_nav-0.0.1-py3.12.egg-info
+running install_scripts
+Installing ground_truth_localizer script to /workspaces/ros2_jazzy_docker/ros2_ws/install/stage_autonomous_nav/lib/stage_autonomous_nav
+writing list of installed files to '/workspaces/ros2_jazzy_docker/ros2_ws/build/stage_autonomous_nav/install.log'

@@ -1,8 +1,8 @@
 # Integration exercise only; too short to learn a useful exploration policy.
 dqn_trainer:
   ros__parameters:
-    max_steps: 20
-    stall_limit: 20
+    max_episode_seconds: 15.0
+    stall_seconds: 15.0
     batch_size: 4
     evaluation_interval: 1
     evaluation_episodes: 1

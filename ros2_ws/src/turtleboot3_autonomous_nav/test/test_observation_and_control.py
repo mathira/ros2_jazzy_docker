@@ -1,6 +1,6 @@
 import numpy as np
 
-from turtleboot3_autonomous_nav.observation import build_observation
+from turtleboot3_autonomous_nav.observation import LIDAR_MAX_RANGE, build_observation
 from turtleboot3_autonomous_nav.control import (
     FORWARD,
     SOFT_LEFT,
@@ -98,17 +98,20 @@ def test_action_speeds_are_clamped_to_configured_limits():
     assert result.intervention is False
 
 
-def test_observation_has_fixed_lidar_gain_patch_and_velocity_layout():
-    """Variable scan and grid inputs become the documented 12+8+64+2 vector."""
+def test_a_scan_of_any_length_reduces_to_twelve_sector_minima():
+    """The LiDAR field is fixed width whatever the simulated scan resolution."""
     observation = build_observation(
         np.arange(1.0, 25.0),
         np.full((5, 7), -1, dtype=np.int8),
+        (2, 3),
+        0.0,
         linear_velocity=0.12,
         angular_velocity=-0.34,
     )
 
-    assert observation.shape == (86,)
-    assert np.allclose(observation[:12], np.arange(1.0, 24.0, 2.0))
+    assert np.allclose(
+        observation[:12], np.clip(np.arange(1.0, 24.0, 2.0) / LIDAR_MAX_RANGE, 0.0, 1.0)
+    )
     assert np.allclose(observation[12:20], np.ones(8))
     assert np.allclose(observation[-2:], np.array([0.12, -0.34]))
 

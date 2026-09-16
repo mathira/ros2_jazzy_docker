@@ -1,0 +1,41 @@
+[1.265s] Invoking command in '/workspaces/ros2_jazzy_docker/ros2_ws/src/turtle_py': PYTHONPATH=/workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/turtle_py build --build-base /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build install --record /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/install.log --install-scripts $base/lib/turtle_py --single-version-externally-managed install_data
+[1.570s] running egg_info
+[1.572s] creating ../../build/turtle_py/turtle_py.egg-info
+[1.589s] writing ../../build/turtle_py/turtle_py.egg-info/PKG-INFO
+[1.592s] writing dependency_links to ../../build/turtle_py/turtle_py.egg-info/dependency_links.txt
+[1.594s] writing entry points to ../../build/turtle_py/turtle_py.egg-info/entry_points.txt
+[1.596s] writing requirements to ../../build/turtle_py/turtle_py.egg-info/requires.txt
+[1.597s] writing top-level names to ../../build/turtle_py/turtle_py.egg-info/top_level.txt
+[1.715s] writing manifest file '../../build/turtle_py/turtle_py.egg-info/SOURCES.txt'
+[1.800s] reading manifest file '../../build/turtle_py/turtle_py.egg-info/SOURCES.txt'
+[1.806s] writing manifest file '../../build/turtle_py/turtle_py.egg-info/SOURCES.txt'
+[1.807s] running build
+[1.808s] running build_py
+[1.809s] creating /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build
+[1.810s] creating /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib
+[1.810s] creating /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py
+[1.813s] copying turtle_py/spawn_turtle.py -> /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py
+[1.819s] copying turtle_py/teleop_turtle.py -> /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py
+[1.823s] copying turtle_py/__init__.py -> /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py
+[1.826s] running install
+[1.827s] running install_lib
+[1.841s] creating /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py
+[1.842s] copying /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py/spawn_turtle.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py
+[1.843s] copying /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py/teleop_turtle.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py
+[1.844s] copying /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py/__init__.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py
+[1.846s] byte-compiling /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py/spawn_turtle.py to spawn_turtle.cpython-312.pyc
+[1.849s] byte-compiling /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py/teleop_turtle.py to teleop_turtle.cpython-312.pyc
+[1.857s] byte-compiling /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py/__init__.py to __init__.cpython-312.pyc
+[1.858s] running install_data
+[1.860s] creating /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/share/ament_index
+[1.862s] creating /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/share/ament_index/resource_index
+[1.862s] creating /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/share/ament_index/resource_index/packages
+[1.863s] copying resource/turtle_py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/share/ament_index/resource_index/packages
+[1.864s] copying package.xml -> /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/share/turtle_py
+[1.867s] running install_egg_info
+[1.907s] Copying ../../build/turtle_py/turtle_py.egg-info to /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py-0.0.1-py3.12.egg-info
+[1.919s] running install_scripts
+[1.977s] Installing spawn_turtle script to /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/turtle_py
+[1.978s] Installing teleop_turtle script to /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/turtle_py
+[1.980s] writing list of installed files to '/workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/install.log'
+[2.007s] Invoked command in '/workspaces/ros2_jazzy_docker/ros2_ws/src/turtle_py' returned '0': PYTHONPATH=/workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/turtle_py build --build-base /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build install --record /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/install.log --install-scripts $base/lib/turtle_py --single-version-externally-managed install_data

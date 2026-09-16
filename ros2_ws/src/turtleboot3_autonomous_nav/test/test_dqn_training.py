@@ -118,7 +118,7 @@ def test_reward_favors_new_coverage_and_penalizes_intervention():
 
 def test_episode_ends_at_the_first_configured_terminal_condition():
     """A trainer must not run past its episode, coverage, or stall bounds."""
-    config = TrainerConfig(max_steps=5, target_coverage=0.8, stall_limit=3)
+    config = TrainerConfig(max_steps=5, target_coverage=0.8, stall_seconds=3.0)
 
     assert episode_end_reason(5, 0.1, 0, config) == "max_steps"
     assert episode_end_reason(2, 0.8, 0, config) == "target_coverage"

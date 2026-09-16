@@ -2,6 +2,7 @@
 
 from launch import LaunchDescription
 from launch.actions import AppendEnvironmentVariable, DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, SetEnvironmentVariable
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node, SetRemap
 from launch_ros.parameter_descriptions import ParameterValue
@@ -20,6 +21,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('training_config', default_value=PathJoinSubstitution([share, 'config', 'training.yaml'])),
         DeclareLaunchArgument('model_directory', default_value='models'),
+        DeclareLaunchArgument('monitor', default_value='true'),
         SetEnvironmentVariable('TURTLEBOT3_MODEL', 'burger'),
         AppendEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', PathJoinSubstitution([
             FindPackagePrefix('turtlebot3_gazebo'), 'lib', 'turtlebot3_gazebo'])),
@@ -36,6 +38,9 @@ def generate_launch_description():
              parameters=[PathJoinSubstitution([share, 'config', 'exploration.yaml']), sim]),
         Node(package=package, executable='observation_builder', name='observation_builder', parameters=[sim]),
         Node(package=package, executable='safe_motion_controller', name='safe_motion_controller', parameters=[sim]),
+        Node(package=package, executable='training_monitor', name='training_monitor',
+             output='screen', parameters=[sim],
+             condition=IfCondition(LaunchConfiguration('monitor'))),
         Node(package=package, executable='dqn_trainer', name='dqn_trainer', parameters=[
             LaunchConfiguration('training_config'), sim, {
                 'max_episodes': ParameterValue(LaunchConfiguration('episodes'), value_type=int),

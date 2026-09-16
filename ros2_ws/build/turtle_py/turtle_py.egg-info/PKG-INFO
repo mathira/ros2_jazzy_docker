@@ -1,0 +1,7 @@
+Metadata-Version: 2.1
+Name: turtle-py
+Version: 0.0.1
+Summary: Python turtlesim teleop and spawn nodes
+Maintainer: ros
+Maintainer-email: ros@example.com
+License: Apache-2.0

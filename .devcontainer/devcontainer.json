@@ -2,7 +2,7 @@
   "name": "ROS2 Jazzy Dev Container",
   "build": {
     "dockerfile": "Dockerfile",
-    "context": "."
+    "context": ".."
   },
   "runArgs": [
     "--init",
@@ -13,7 +13,8 @@
     "type=bind,source=${localWorkspaceFolder}/ros2_ws/src,target=/ros2_ws/src",
     "type=volume,source=ros2_jazzy_ws_build,target=/ros2_ws/build",
     "type=volume,source=ros2_jazzy_ws_install,target=/ros2_ws/install",
-    "type=volume,source=ros2_jazzy_ws_log,target=/ros2_ws/log"
+    "type=volume,source=ros2_jazzy_ws_log,target=/ros2_ws/log",
+    "type=volume,source=ros2_jazzy_codex_home,target=/home/ros/.codex"
   ],
   "remoteUser": "ros",
   "containerUser": "ros",

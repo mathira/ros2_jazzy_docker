@@ -36,9 +36,9 @@ Visualization Manager:
     - Class: rviz_default_plugins/Odometry
       Name: Odometry
       Enabled: true
-      Keep: 50
+      Keep: 1
       Topic:
-        Value: /odom
+        Value: /odom_truth
         Reliability Policy: Reliable
         Durability Policy: Volatile
         Depth: 5
@@ -58,6 +58,10 @@ Visualization Manager:
     Current:
       Class: rviz_default_plugins/TopDownOrtho
       Name: Current View
+      # RViz's top-down view points +X up the screen by default, which reads as
+      # the scenario turned a quarter turn against the Gazebo camera. This puts
+      # +X to the right and +Y up, the orientation a floor plan is read in.
+      Angle: -1.5708
       Scale: 75
       Target Frame: odom
       X: 0

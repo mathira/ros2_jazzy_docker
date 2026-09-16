@@ -27,6 +27,7 @@ ros2_jazzy_docker/
 - teleop_twist_keyboard, rviz2, rqt
 - **VNC**: `Xvfb` virtual display + `x11vnc` + **noVNC** (browser access)
 - Lightweight Xfce desktop
+- **Codex CLI** (with its session persisted in a Docker volume)
 
 ## Requirements
 
@@ -46,7 +47,30 @@ ros2_jazzy_docker/
 source /opt/ros/jazzy/setup.bash
 ros2 --help
 gz sim --version
+codex --version
 ```
+
+### Use Codex inside the dev container
+
+After the first rebuild, open a terminal **inside the dev container** and sign
+in once:
+
+```bash
+codex login
+```
+
+Then run Codex from `/ros2_ws` (or a package directory):
+
+```bash
+cd /ros2_ws
+codex
+```
+
+The `ros2_jazzy_codex_home` named volume keeps the Codex login and settings
+across container rebuilds. It is deliberately separate from the workspace and
+is not committed to Git. If you prefer API-key authentication, set
+`OPENAI_API_KEY` in the terminal before starting `codex` instead of storing a
+key in the repository.
 
 ## Option B — Docker CLI
 

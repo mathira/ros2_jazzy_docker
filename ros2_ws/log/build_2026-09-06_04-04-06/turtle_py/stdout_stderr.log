@@ -1,0 +1,39 @@
+running egg_info
+creating ../../build/turtle_py/turtle_py.egg-info
+writing ../../build/turtle_py/turtle_py.egg-info/PKG-INFO
+writing dependency_links to ../../build/turtle_py/turtle_py.egg-info/dependency_links.txt
+writing entry points to ../../build/turtle_py/turtle_py.egg-info/entry_points.txt
+writing requirements to ../../build/turtle_py/turtle_py.egg-info/requires.txt
+writing top-level names to ../../build/turtle_py/turtle_py.egg-info/top_level.txt
+writing manifest file '../../build/turtle_py/turtle_py.egg-info/SOURCES.txt'
+reading manifest file '../../build/turtle_py/turtle_py.egg-info/SOURCES.txt'
+writing manifest file '../../build/turtle_py/turtle_py.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build
+creating /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib
+creating /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py
+copying turtle_py/spawn_turtle.py -> /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py
+copying turtle_py/teleop_turtle.py -> /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py
+copying turtle_py/__init__.py -> /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py
+running install
+running install_lib
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py
+copying /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py/spawn_turtle.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py
+copying /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py/teleop_turtle.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py
+copying /workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/build/lib/turtle_py/__init__.py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py
+byte-compiling /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py/spawn_turtle.py to spawn_turtle.cpython-312.pyc
+byte-compiling /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py/teleop_turtle.py to teleop_turtle.cpython-312.pyc
+byte-compiling /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py/__init__.py to __init__.cpython-312.pyc
+running install_data
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/share/ament_index
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/share/ament_index/resource_index
+creating /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/share/ament_index/resource_index/packages
+copying resource/turtle_py -> /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/share/ament_index/resource_index/packages
+copying package.xml -> /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/share/turtle_py
+running install_egg_info
+Copying ../../build/turtle_py/turtle_py.egg-info to /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/python3.12/site-packages/turtle_py-0.0.1-py3.12.egg-info
+running install_scripts
+Installing spawn_turtle script to /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/turtle_py
+Installing teleop_turtle script to /workspaces/ros2_jazzy_docker/ros2_ws/install/turtle_py/lib/turtle_py
+writing list of installed files to '/workspaces/ros2_jazzy_docker/ros2_ws/build/turtle_py/install.log'

@@ -1,0 +1,11 @@
+[console_scripts]
+coverage_mapper = turtleboot3_autonomous_nav.coverage_mapper:main
+dqn_explorer = turtleboot3_autonomous_nav.dqn_explorer:main
+dqn_trainer = turtleboot3_autonomous_nav.dqn_trainer:main
+exploration_visualizer = turtleboot3_autonomous_nav.exploration_visualizer:main
+frontier_explorer = turtleboot3_autonomous_nav.frontier_explorer:main
+install_turtlebot3_dependencies = turtleboot3_autonomous_nav.dependency_installer:main
+observation_builder = turtleboot3_autonomous_nav.observation_builder:main
+safe_motion_controller = turtleboot3_autonomous_nav.safe_motion_controller:main
+simulation_localizer = turtleboot3_autonomous_nav.simulation_localizer:main
+training_monitor = turtleboot3_autonomous_nav.training_monitor:main
