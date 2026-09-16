@@ -20,7 +20,7 @@ pgrep -f websockify >/dev/null 2>&1 || websockify --web=/usr/share/novnc/ 6080 l
 
 # Open a real TTY for keyboard-driven ROS nodes inside the noVNC desktop.
 if ! pgrep -u "$(id -u)" -f 'xfce4-terminal' >/dev/null 2>&1; then
-  xfce4-terminal --disable-server --maximize \
+  xfce4-terminal --disable-server --geometry=120x35 \
     --title='ROS 2 Jazzy - project terminal' \
     --command='/home/ros/setup/web-terminal.sh' >/tmp/xfce4-terminal.log 2>&1 &
 fi
