@@ -1,3 +1,0 @@
-[console_scripts]
-spawn_turtle = turtle_py.spawn_turtle:main
-teleop_turtle = turtle_py.teleop_turtle:main

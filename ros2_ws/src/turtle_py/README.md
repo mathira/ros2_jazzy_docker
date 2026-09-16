@@ -7,15 +7,18 @@ A small ROS 2 (Jazzy) Python package with two nodes to play with **turtlesim**:
 
 ## Prerequisites
 
-- The dev container from the project `README` is running (`ros2-jazzy`).
+- The project container from the root `README` is running (`ros2-jazzy-project`).
 - `ros-jazzy-turtlesim` is installed inside the container.
 
 ## 1. Build the package
 
-Open a terminal **inside the container**:
+The web console is available inside the project container. Open
+<http://localhost:6080/vnc.html> (password `ros`) and use the automatically
+opened **ROS 2 Jazzy - project terminal**. It starts in `/ros2_ws` with ROS 2
+loaded. A host terminal remains available as an alternative:
 
 ```bash
-docker exec -it ros2-jazzy bash
+docker compose -f setup/docker-compose.yml exec ros2 bash
 ```
 
 Then build and source your workspace:
@@ -46,7 +49,7 @@ You should see a turtle at the center of a blue window.
 
 ## 3. Teleoperate the turtle
 
-In a **second interactive terminal** (`docker exec -it ... bash`):
+In the Xfce terminal inside noVNC (or another interactive container terminal):
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -67,7 +70,9 @@ Control keys:
 
 While running it **publishes** `Twist` messages continuously on `/turtle1/cmd_vel`.
 
-> ⚠️ Keyboard reading needs a real TTY, so run `teleop_turtle` in an interactive terminal, not `docker exec` without `-it`. From a VNC terminal (Xfce) it also works.
+> ⚠️ Keyboard reading needs a real TTY. The terminal opened inside noVNC is a
+> real interactive terminal, so focus that window before pressing movement
+> keys.
 
 ## 4. (Optional) Spawn a second turtle
 

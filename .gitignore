@@ -1,0 +1,37 @@
+# Operating-system files
+.DS_Store
+Thumbs.db
+
+# Editors and local environment
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python generated files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# ROS 2 / colcon workspace artifacts
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# Repositories imported by setup/container-setup.sh
+ros2_ws/src/marker_msgs/
+ros2_ws/src/turtlebot3_msgs/
+ros2_ws/src/turtlebot3_simulations/
+
+# Local ROS and tool logs
+.ros/
+*.log
+
+# Python virtual environments
+.venv/
+venv/
+env/
