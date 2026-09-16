@@ -26,6 +26,9 @@ contenedor, con ROS 2 y `/ros2_ws/install` cargados. Esa terminal tiene TTY
 real, por lo que también sirve para ejecutar `turtle_py/teleop_turtle` y usar
 las teclas de movimiento desde el navegador.
 
+Las nuevas ventanas de terminal se abren con Bash y el usuario `ros`; no es
+necesario usar `sudo`, `su` ni ingresar una contraseña.
+
 Para detenerlo:
 
 ```bash

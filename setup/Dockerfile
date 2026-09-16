@@ -38,7 +38,7 @@ RUN wget -q https://packages.osrfoundation.org/gazebo.gpg \
 RUN userdel ubuntu 2>/dev/null || true \
     && groupdel ubuntu 2>/dev/null || true \
     && groupadd --gid ${USER_GID} ${USERNAME} \
-    && useradd --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} \
+    && useradd --uid ${USER_UID} --gid ${USER_GID} --shell /bin/bash -m ${USERNAME} \
     && echo "${USERNAME} ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME}
 
