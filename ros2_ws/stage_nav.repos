@@ -11,3 +11,7 @@ repositories:
     type: git
     url: https://github.com/tuw-robotics/marker_msgs.git
     version: ros2
+  autonomous_navigation_pria:
+    type: git
+    url: https://github.com/mathira/autonomous_navigation_pria.git
+    version: main
