@@ -6,7 +6,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 
 ARGUMENT_DEFAULTS = {
-    "goal_x": "4.8",
+    "goal_x": "5.0",
     "goal_y": "4.0",
     "odom_topic": "/ground_truth",
     "scan_topic": "/base_scan",
@@ -24,7 +24,7 @@ ARGUMENT_DEFAULTS = {
     "stop_distance": "0.35",
     "front_sector_angle": "0.7",
     "require_scan": "true",
-    "goal_standoff": "0.55",
+    "goal_standoff": "0.65",
     "wall_distance": "0.55",
     "wall_follow_linear_speed": "0.18",
     "wall_kp": "1.5",

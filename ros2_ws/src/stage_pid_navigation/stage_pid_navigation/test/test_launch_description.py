@@ -18,7 +18,7 @@ LAUNCH_FILE = (
 )
 
 EXPECTED_DEFAULTS = {
-    "goal_x": 4.8,
+    "goal_x": 5.0,
     "goal_y": 4.0,
     "odom_topic": "/ground_truth",
     "scan_topic": "/base_scan",
@@ -36,7 +36,7 @@ EXPECTED_DEFAULTS = {
     "stop_distance": 0.35,
     "front_sector_angle": 0.7,
     "require_scan": True,
-    "goal_standoff": 0.55,
+    "goal_standoff": 0.65,
     "wall_distance": 0.55,
     "wall_follow_linear_speed": 0.18,
     "wall_kp": 1.5,
@@ -98,7 +98,7 @@ def test_launch_declares_stage_topics_and_goal_arguments():
 
 
 @pytest.mark.parametrize(
-    ("goal_name", "expected"), (("goal_x", "4.8"), ("goal_y", "4.0"))
+    ("goal_name", "expected"), (("goal_x", "5.0"), ("goal_y", "4.0"))
 )
 def test_goal_launch_arguments_default_to_a_free_pose_near_the_green_block(
     goal_name, expected

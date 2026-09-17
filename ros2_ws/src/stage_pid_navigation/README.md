@@ -1,103 +1,64 @@
-# Stage PID Navigation
+# Proyecto de Robots 2
 
-`stage_pid_navigation` drives a differential robot in Stage toward a planar
-goal. The ROS node reads odometry and LiDAR data, uses an angular PID
-controller, slows or turns away from nearby obstacles, and publishes
-`geometry_msgs/msg/Twist` commands.
+**Estudiante:** Mathias Rodriguez
 
-## Build
+**Institución:** UTEC - ITR Norte Rivera
 
-From the repository root:
+**Programa:** PRIA
+
+## Descripción
+
+En este trabajo hice un paquete de ROS 2 para controlar un robot en el
+simulador Stage.
+
+El robot recibe su posición y la información del sensor láser. Con esos datos
+se mueve solo hacia el objetivo, evita obstáculos y publica sus velocidades.
+
+## Cómo ejecutarlo
+
+Primero entro al contenedor y preparo el workspace:
 
 ```bash
-cd ros2_ws
+cd /ros2_ws
 source /opt/ros/jazzy/setup.bash
-colcon build --packages-select stage_pid_navigation
-source install/setup.bash
+colcon build --symlink-install --packages-select stage_pid_navigation
+source /ros2_ws/install/setup.bash
 ```
 
-Source both setup files in every new terminal used below:
+Para iniciar el mapa y la navegación con un solo comando uso:
 
 ```bash
-cd ros2_ws
+ros2 launch stage_pid_navigation full.launch.py
+```
+
+El robot se dirige al bloque verde del mundo `cave` y se detiene cerca de él
+para evitar una colisión.
+
+También puedo hacerlo en dos terminales. Primero redibujo solamente el mapa:
+
+```bash
+ros2 launch stage_pid_navigation stage_world.launch.py
+```
+
+Después, en otra terminal, arranco solamente la navegación:
+
+```bash
+cd /ros2_ws
 source /opt/ros/jazzy/setup.bash
-source install/setup.bash
+source /ros2_ws/install/setup.bash
+ros2 launch stage_pid_navigation pid_navigation.launch.py
 ```
 
-## Single-robot operation
+## Tópicos principales
 
-Start the unprefixed single-robot Stage world in one sourced terminal:
+- `/ground_truth`: posición del robot.
+- `/base_scan`: información del sensor láser.
+- `/cmd_vel`: velocidad enviada al robot.
 
-```bash
-ros2 launch stage_ros2 stage.launch.py world:=cave
-```
+## Qué comprobé
 
-In another sourced terminal, start navigation with a goal expressed in the
-odometry frame. Both `goal_x` and `goal_y` are required; the launch exits with
-an error before starting the node if either is omitted:
-
-```bash
-ros2 launch stage_pid_navigation pid_navigation.launch.py \
-  goal_x:=2.0 goal_y:=1.5
-```
-
-The default topics are `/odom`, `/base_scan`, and `/cmd_vel`. The node remains
-stopped until it has received odometry and, by default, a laser scan. It also
-publishes a zero velocity after reaching the goal and during shutdown.
-
-Goals are coordinates in `/odom`, not Stage's `world` frame. In the `cave`
-world the robot starts at world pose `(-7, -7, 45 deg)`, while its odometry
-starts at `(0, 0, 0)`. For example, the nearby world point `(-6, -5.5)` is
-approximately `(1.768, 0.354)` in that odometry frame:
-
-```bash
-ros2 launch stage_pid_navigation pid_navigation.launch.py \
-  goal_x:=1.7678 goal_y:=0.3536
-```
-
-## Multi-robot topics
-
-For `robot_0` in a prefixed Stage world, select that robot's interfaces:
-
-```bash
-ros2 launch stage_pid_navigation pid_navigation.launch.py \
-  goal_x:=2.0 goal_y:=1.5 \
-  odom_topic:=/robot_0/odom \
-  scan_topic:=/robot_0/base_scan \
-  cmd_vel_topic:=/robot_0/cmd_vel
-```
-
-Run a separate navigator with distinct topic arguments for each additional
-robot.
-
-## Parameters
-
-All parameters are also launch arguments.
-
-| Parameter | Default | Description |
-| --- | ---: | --- |
-| `goal_x` | required | Goal x-coordinate in metres in the odometry frame. |
-| `goal_y` | required | Goal y-coordinate in metres in the odometry frame. |
-| `odom_topic` | `/odom` | `nav_msgs/msg/Odometry` input topic. |
-| `scan_topic` | `/base_scan` | `sensor_msgs/msg/LaserScan` input topic. |
-| `cmd_vel_topic` | `/cmd_vel` | `geometry_msgs/msg/Twist` output topic. |
-| `control_rate` | `10.0` | Fixed control-loop frequency in hertz. |
-| `kp` | `1.8` | Proportional gain for heading error. |
-| `ki` | `0.0` | Integral gain for heading error. |
-| `kd` | `0.15` | Derivative gain for heading error. |
-| `integral_limit` | `1.0` | Absolute anti-windup limit on accumulated heading error. |
-| `max_linear_speed` | `0.35` | Maximum forward speed in metres per second. |
-| `max_angular_speed` | `1.2` | Maximum turn rate in radians per second. |
-| `heading_stop_threshold` | `0.7` | Absolute heading error in radians above which forward motion stops. |
-| `goal_tolerance` | `0.15` | Distance in metres at which the goal is considered reached. |
-| `slowdown_distance` | `0.9` | Front-obstacle distance in metres below which forward speed is reduced. |
-| `stop_distance` | `0.35` | Front-obstacle distance in metres below which forward motion stops and escape turning begins. |
-| `front_sector_angle` | `0.7` | Total angular width in radians of the forward LiDAR sector. |
-| `require_scan` | `true` | Keep the robot stopped until a scan arrives; set to `false` only when operating without LiDAR protection. |
-
-## Limitation
-
-Obstacle handling is a local LiDAR reaction, not global path planning. It can
-slow, stop, and turn away from nearby objects, but it cannot guarantee reaching
-a goal behind a non-traversable obstacle. Use a global planner when the route
-requires reasoning around walls, dead ends, or other large obstacles.
+- El robot se mueve sin control manual.
+- Usa la odometría y el sensor láser.
+- Evita los obstáculos del mapa.
+- Llega al objetivo y se detiene.
+- El código está organizado en un paquete ROS 2.

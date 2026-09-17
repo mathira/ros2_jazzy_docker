@@ -26,7 +26,7 @@ from stage_pid_navigation.global_planner import cave_planner
 
 
 PARAMETER_DEFAULTS = {
-    "goal_x": 4.8,
+    "goal_x": 5.0,
     "goal_y": 4.0,
     "odom_topic": "/ground_truth",
     "scan_topic": "/base_scan",
@@ -44,7 +44,7 @@ PARAMETER_DEFAULTS = {
     "stop_distance": 0.35,
     "front_sector_angle": 0.7,
     "require_scan": True,
-    "goal_standoff": 0.55,
+    "goal_standoff": 0.65,
     "wall_distance": 0.55,
     "wall_follow_linear_speed": 0.18,
     "wall_kp": 1.5,
@@ -102,11 +102,25 @@ class PidNavigator(Node):
         )
         if bool(parameters["use_global_planner"]):
             self._planner = cave_planner()
+            self._navigation_goal = self._goal
+            if not self._planner.is_free(self._goal):
+                self.get_logger().warning(
+                    "El objetivo solicitado está dentro de un obstáculo. "
+                    "Buscaré el punto alcanzable más cercano."
+                )
+        else:
+            self._navigation_goal = self._goal
         self._waypoints = []
         self._pose: Optional[Pose2D] = None
         self._scan: Optional[ScanSummary] = None
         self._reached_goal = False
+        self._planner_error_reported = False
         self._last_control_time = time.monotonic()
+
+        self.get_logger().info(
+            f"Navegación iniciada: objetivo={self._goal}, "
+            f"objetivo seguro={self._navigation_goal}"
+        )
 
         self._cmd_vel_publisher = self.create_publisher(
             Twist, str(parameters["cmd_vel_topic"]), 10
@@ -157,28 +171,46 @@ class PidNavigator(Node):
             self._publish_stop()
             return
 
+        # Keeps the adapter easy to exercise with lightweight test doubles.
+        navigation_goal = getattr(self, "_navigation_goal", self._goal)
         scan = self._scan if self._scan is not None else ScanSummary.clear()
-        goal_distance = math.dist((self._pose.x, self._pose.y), self._goal)
-        if goal_distance <= getattr(self, "_goal_standoff", 0.0):
+        goal_distance = math.dist((self._pose.x, self._pose.y), navigation_goal)
+        arrival_distance = getattr(self, "_goal_standoff", 0.0) + self._config.goal_tolerance
+        if goal_distance <= arrival_distance:
             command = Command(0.0, 0.0, reached_goal=True)
         else:
             if not hasattr(self, "_planner"):
                 command = compute_command(
-                    pose=self._pose, goal=self._goal, scan=scan, config=self._config,
+                    pose=self._pose, goal=navigation_goal, scan=scan, config=self._config,
                     pid=self._pid, dt=dt
                 )
             else:
                 if not self._waypoints:
                     try:
                         planning_goal = (
-                            self._goal[0] - (self._goal[0] - self._pose.x) / goal_distance * self._goal_standoff,
-                            self._goal[1] - (self._goal[1] - self._pose.y) / goal_distance * self._goal_standoff,
+                            navigation_goal[0] - (navigation_goal[0] - self._pose.x) / goal_distance * self._goal_standoff,
+                            navigation_goal[1] - (navigation_goal[1] - self._pose.y) / goal_distance * self._goal_standoff,
                         )
                         self._waypoints = self._planner.plan((self._pose.x, self._pose.y), planning_goal)[1:]
                     except ValueError as error:
-                        self.get_logger().error(str(error))
-                        self._publish_stop()
-                        return
+                        try:
+                            self._waypoints = self._planner.plan_to_closest_reachable(
+                                (self._pose.x, self._pose.y), planning_goal
+                            )[1:]
+                            if self._waypoints:
+                                self._navigation_goal = self._waypoints[-1]
+                                self.get_logger().warning(
+                                    "La ruta directa no es posible; "
+                                    f"uso un objetivo alcanzable en {self._navigation_goal}."
+                                )
+                        except ValueError as fallback_error:
+                            if not self._planner_error_reported:
+                                self.get_logger().error(
+                                    f"No se pudo calcular la ruta: {error}. {fallback_error}"
+                                )
+                                self._planner_error_reported = True
+                            self._publish_stop()
+                            return
                 while len(self._waypoints) > 1 and math.dist((self._pose.x, self._pose.y), self._waypoints[0]) <= self._config.goal_tolerance:
                     self._waypoints.pop(0)
                 command = compute_command(

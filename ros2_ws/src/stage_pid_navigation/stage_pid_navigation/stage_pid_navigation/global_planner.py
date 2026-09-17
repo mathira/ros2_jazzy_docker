@@ -2,6 +2,7 @@
 
 from heapq import heappop, heappush
 import math
+from collections import deque
 
 
 def cave_planner(clearance: float = 0.25):
@@ -36,6 +37,34 @@ class GridPlanner:
     def to_point(self, cell):
         return (self.origin[0] + cell[0] * self.resolution, self.origin[1] + cell[1] * self.resolution)
 
+    def is_free(self, point):
+        """Return whether a world point is free after obstacle inflation."""
+        cell = self.to_cell(point)
+        return not self.occupied[cell[1], cell[0]]
+
+    def nearest_free_point(self, point):
+        """Find a safe point when the requested goal is inside an obstacle."""
+        start = self.to_cell(point)
+        if not self.occupied[start[1], start[0]]:
+            return point
+
+        pending = deque([start])
+        visited = {start}
+        while pending:
+            current = pending.popleft()
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                candidate = current[0] + dx, current[1] + dy
+                if candidate in visited:
+                    continue
+                if not (0 <= candidate[0] < self.width and 0 <= candidate[1] < self.height):
+                    continue
+                if not self.occupied[candidate[1], candidate[0]]:
+                    return self.to_point(candidate)
+                visited.add(candidate)
+                pending.append(candidate)
+
+        raise ValueError("No hay ningún punto libre cerca del objetivo")
+
     def plan(self, start, goal):
         start_cell, goal_cell = self.to_cell(start), self.to_cell(goal)
         queue, came_from, costs = [(0.0, start_cell)], {}, {start_cell: 0.0}
@@ -54,11 +83,55 @@ class GridPlanner:
                 nxt = current[0] + dx, current[1] + dy
                 if not (0 <= nxt[0] < self.width and 0 <= nxt[1] < self.height) or self.occupied[nxt[1], nxt[0]]:
                     continue
+                if dx and dy and (
+                    self.occupied[current[1], nxt[0]]
+                    or self.occupied[nxt[1], current[0]]
+                ):
+                    continue
                 next_cost = costs[current] + math.hypot(dx, dy)
                 if next_cost < costs.get(nxt, math.inf):
                     costs[nxt], came_from[nxt] = next_cost, current
                     heappush(queue, (next_cost + math.dist(nxt, goal_cell), nxt))
         raise ValueError("No collision-free path to goal")
+
+    def plan_to_closest_reachable(self, start, goal):
+        """Plan to the closest reachable free cell when the goal is blocked."""
+        start_cell, goal_cell = self.to_cell(start), self.to_cell(goal)
+        queue = deque([start_cell])
+        came_from = {}
+        visited = {start_cell}
+        while queue:
+            current = queue.popleft()
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+                candidate = current[0] + dx, current[1] + dy
+                if candidate in visited:
+                    continue
+                if not (0 <= candidate[0] < self.width and 0 <= candidate[1] < self.height):
+                    continue
+                if self.occupied[candidate[1], candidate[0]]:
+                    continue
+                if dx and dy and (
+                    self.occupied[current[1], candidate[0]]
+                    or self.occupied[candidate[1], current[0]]
+                ):
+                    continue
+                visited.add(candidate)
+                came_from[candidate] = current
+                queue.append(candidate)
+
+        reachable_goal = min(
+            visited,
+            key=lambda cell: math.dist(cell, goal_cell),
+        )
+        cells = [reachable_goal]
+        current = reachable_goal
+        while current in came_from:
+            current = came_from[current]
+            cells.append(current)
+        cells.reverse()
+        points = [self.to_point(cell) for cell in cells]
+        points[0], points[-1] = start, self.to_point(reachable_goal)
+        return self._simplify(points)
 
     @staticmethod
     def _simplify(points):
